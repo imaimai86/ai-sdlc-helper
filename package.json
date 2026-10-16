@@ -1,0 +1,39 @@
+{
+  "name": "ai-sdlc-helper",
+  "version": "0.1.0",
+  "description": "Run an AI-driven SDLC pipeline (Spec, Plan, Red tests, Implement, Review, Ship) on any project, with Claude Code agents.",
+  "license": "MIT",
+  "author": "Anas",
+  "type": "module",
+  "bin": {
+    "ai-sdlc-helper": "dist/bin.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "assets"
+  ],
+  "engines": {
+    "node": ">=18.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imaimai86/ai-sdlc-helper.git"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit && tsc -p test",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "npm run lint && npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^18.19.130",
+    "eslint": "^9.39.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^3.2.7"
+  }
+}
