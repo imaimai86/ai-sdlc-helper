@@ -12,3 +12,8 @@ export { suggest, setupPlan, provision, locateTestDir, packagesBelow, describePr
 export { renderSkill, renderTemplate, skillNames } from './config/skills.js';
 export { argsProblem } from './cli/args.js';
 export { main, type Io } from './cli/main.js';
+export { configDir } from './configDir.js';
+export {
+  readRegistry, writeRegistry, registryFile, projectDir, gitRoot, RegistryError, type ProjectEntry, type ProjectOverrides,
+} from './registry/projects.js';
+export { doctor, type Check, type DoctorOptions, type Spawn } from './registry/doctor.js';

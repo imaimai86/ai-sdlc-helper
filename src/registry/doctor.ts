@@ -1,0 +1,104 @@
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { exists, readSettings } from '../util.js';
+import { codeSearchErrors, codeSearchFor } from '../config/codeSearch.js';
+import { nodeRun } from '../config/node.js';
+import { resolve, type Config } from '../config/settings.js';
+
+/** Runs a program and waits for it; status is null when it could not be started. */
+export type Spawn = (cmd: string, args: string[], opts: { cwd?: string; env: NodeJS.ProcessEnv }) =>
+  { status: number | null; stdout: string; stderr: string };
+
+export const defaultSpawn: Spawn = (cmd, args, { cwd, env }) => {
+  const r = spawnSync(cmd, args, { cwd, env, encoding: 'utf8' });
+  return { status: r.error ? null : r.status, stdout: r.stdout || '', stderr: r.stderr || (r.error ? r.error.message : '') };
+};
+
+export interface Check {
+  name: string;
+  ok: boolean;
+  /** A failed required check makes doctor fail; the others are recommendations. */
+  required: boolean;
+  detail: string;
+  /** How to fix it, when it failed. */
+  fix?: string;
+}
+
+export interface DoctorOptions {
+  env?: NodeJS.ProcessEnv;
+  spawn?: Spawn;
+  /** The Node running the tool (process.versions.node). */
+  nodeVersion?: string;
+  /** Run each suite's test command once. */
+  runTests?: boolean;
+}
+
+export const MIN_NODE = 18;
+
+/** The backlog folder: from the resolved settings, else a usable backlogDir in sdlc.config.json, else Docs/backlog. */
+export function backlogDirOf(config: Config | null, root: string): string {
+  if (config) return config.backlogDir;
+  const own = readSettings(root).backlogDir;
+  return (typeof own === 'string' && own.replace(/\/+$/, '')) || 'Docs/backlog';
+}
+const tail = (s: string, n = 5) => s.trim().split('\n').slice(-n).join('\n');
+
+/** Everything the pipeline needs to run on the project at <dir>, checked one by one. */
+export function doctor(dir: string, opts: DoctorOptions = {}): Check[] {
+  const env = opts.env || process.env;
+  const spawn = opts.spawn || defaultSpawn;
+  const node = opts.nodeVersion || process.versions.node;
+  const checks: Check[] = [];
+  const add = (c: Check) => { checks.push(c); };
+
+  const major = Number(node.split('.')[0]);
+  add({ name: 'tool Node', ok: major >= MIN_NODE, required: true, detail: `the tool runs on Node ${node} (needs ${MIN_NODE} or newer)`,
+    fix: `install Node ${MIN_NODE} or newer for the tool (the project may keep its own version)` });
+
+  const gitV = spawn('git', ['--version'], { env });
+  add({ name: 'git', ok: gitV.status === 0, required: true, detail: gitV.status === 0 ? gitV.stdout.trim() : 'git is not on PATH', fix: 'install git' });
+  const top = gitV.status === 0 ? spawn('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { env }) : null;
+  const isRepo = Boolean(top && top.status === 0);
+  const root = isRepo ? path.resolve(top!.stdout.trim()) : dir;
+  add({ name: 'git repository', ok: isRepo, required: true, detail: isRepo ? root : `${dir} is not in a git repository`,
+    fix: `run git init in ${dir}, or point doctor at a git repository` });
+
+  const claude = spawn('sh', ['-c', 'command -v claude'], { env });
+  add({ name: 'claude CLI', ok: claude.status === 0, required: true,
+    detail: claude.status === 0 ? claude.stdout.trim() : 'the claude command is not on PATH',
+    fix: 'install Claude Code (npm install -g @anthropic-ai/claude-code) and make sure claude is on PATH' });
+
+  const { config, errors, warnings } = resolve(root, { env });
+  add({ name: 'settings', ok: !errors.length && config !== null, required: true,
+    detail: errors.length ? errors.join('; ') : `settings resolve${warnings.length ? ` (${warnings.length} warning${warnings.length > 1 ? 's' : ''})` : ''}`,
+    fix: `fix sdlc.config.json (see: ai-sdlc-helper show ${root}); without tests, see: ai-sdlc-helper suggest ${root}` });
+
+  const file = readSettings(root);
+  const n = config ? config.node : nodeRun(root, file.node || {}, env);
+  add({ name: 'project Node', ok: !n.warning, required: false,
+    detail: n.warning || (n.switchTo ? `commands run with Node ${n.switchTo} through ${n.manager}` : `commands run with Node ${n.current}`),
+    fix: 'install fnm, Volta or nvm, or set "node": { "version": "current" } in sdlc.config.json' });
+
+  const search = codeSearchFor(root, codeSearchErrors(file).length ? {} : file, env);
+  add({ name: 'code indexer', ok: !search.warning, required: false,
+    detail: search.codeSearch === 'none' ? (search.warning || 'code search uses Grep and Glob (agent.codeSearch is "none")') : `code search uses ${search.codeSearch}`,
+    fix: `see the indexers with: ai-sdlc-helper code-search ${root} --list` });
+
+  const backlogDir = backlogDirOf(config, root);
+  const index = path.join(root, backlogDir, 'index.md');
+  add({ name: 'backlog index', ok: exists(index), required: true, detail: exists(index) ? `${backlogDir}/index.md` : `${backlogDir}/index.md is missing`,
+    fix: `run ai-sdlc-helper add ${root}, or create ${backlogDir}/index.md` });
+
+  if (opts.runTests && config) {
+    for (const s of config.suites) {
+      const r = spawn('sh', ['-c', s.runCmd], { cwd: root, env });
+      add({ name: `tests: ${s.name}`, ok: r.status === 0, required: true,
+        detail: r.status === 0 ? `${s.runCmd} passed` : `${s.runCmd} exited ${r.status ?? 'without starting'}${tail(r.stderr || r.stdout) ? `:\n${tail(r.stderr || r.stdout)}` : ''}`,
+        fix: `make the suite pass (run it yourself: ${s.runCmd})` });
+    }
+  }
+  return checks;
+}
+
+/** Whether every required check passed. */
+export const doctorOk = (checks: Check[]): boolean => checks.every(c => c.ok || !c.required);
