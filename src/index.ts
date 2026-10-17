@@ -17,3 +17,11 @@ export {
   readRegistry, writeRegistry, registryFile, projectDir, gitRoot, RegistryError, type ProjectEntry, type ProjectOverrides,
 } from './registry/projects.js';
 export { doctor, type Check, type DoctorOptions, type Spawn } from './registry/doctor.js';
+export { ADAPTERS, runSuite, runSuites, mergeResults, summary, type RunOptions } from './runners/run.js';
+export type { RunResult, TestCase, SuiteError } from './runners/types.js';
+export { parseJestLike } from './runners/jest.js';
+export { parseMocha } from './runners/mocha.js';
+export { parseNodeTest } from './runners/nodeTest.js';
+export { parseJUnit } from './runners/junit.js';
+export { Keys, testLayout, layoutFromEnv, type TestLayout } from './testcheck/keys.js';
+export * as testcheck from './testcheck/checks.js';
