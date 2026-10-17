@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { beforeEach, describe, expect, test } from 'vitest';
-import { TEST_TIMEOUT_MS, configDir, modelsMain, parseModels, resolvePath } from '../src/models/index.js';
+import { TEST_TIMEOUT_MS, userDir, modelsMain, parseModels, resolvePath } from '../src/models/index.js';
 import { run as runCli, tmp } from './helpers.js';
 
 const KEY = 'sk-test-secret-9876';
@@ -58,14 +58,14 @@ describe('where the registry lives', () => {
     // APPDATA on win32, also when XDG_CONFIG_HOME is set
     expect(at({ APPDATA: 'C:\\Users\\a\\AppData\\Roaming' }, 'win32', 'C:\\h')).toBe('C:\\Users\\a\\AppData\\Roaming\\ai-sdlc-helper\\models.json');
     expect(at({ APPDATA: 'C:\\R', XDG_CONFIG_HOME: '/xdg' }, 'win32', 'C:\\h')).toBe('C:\\R\\ai-sdlc-helper\\models.json');
-    // win32 without APPDATA falls back to home, even with XDG_CONFIG_HOME
-    expect(at({}, 'win32')).toBe('/h/.config/ai-sdlc-helper/models.json');
-    expect(at({ XDG_CONFIG_HOME: '/xdg' }, 'win32')).toBe('/h/.config/ai-sdlc-helper/models.json');
+    // win32 without APPDATA falls back to home\AppData\Roaming, even with XDG_CONFIG_HOME
+    expect(at({}, 'win32')).toBe('\\h\\AppData\\Roaming\\ai-sdlc-helper\\models.json');
+    expect(at({ XDG_CONFIG_HOME: '/xdg' }, 'win32')).toBe('\\h\\AppData\\Roaming\\ai-sdlc-helper\\models.json');
     // nothing set gives home/.config; empty strings count as not set
     expect(at({}, 'linux')).toBe('/h/.config/ai-sdlc-helper/models.json');
     expect(at({ AI_SDLC_HELPER_MODELS_FILE: '', SDLC_MODELS_FILE: '', XDG_CONFIG_HOME: '' }, 'linux')).toBe('/h/.config/ai-sdlc-helper/models.json');
-    expect(at({ APPDATA: '' }, 'win32')).toBe('/h/.config/ai-sdlc-helper/models.json');
-    expect(configDir({ env: { XDG_CONFIG_HOME: '/xdg' }, platform: 'linux', home: '/h' })).toBe('/xdg/ai-sdlc-helper');
+    expect(at({ APPDATA: '' }, 'win32')).toBe('\\h\\AppData\\Roaming\\ai-sdlc-helper\\models.json');
+    expect(userDir({ env: { XDG_CONFIG_HOME: '/xdg' }, platform: 'linux', home: '/h' }, 'sdlc')).toBe('/xdg/sdlc');
   });
 
   test('the file the scripts used (sdlc/models.json) is read while the new one is missing; the first change writes the new one', async () => {

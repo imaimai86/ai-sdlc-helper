@@ -13,6 +13,11 @@ export { renderSkill, renderTemplate, skillNames } from './config/skills.js';
 export { argsProblem } from './cli/args.js';
 export { currentState, skipReason, snapshot, changed, mirror, mark, parseKeys, type Changed } from './changes/index.js';
 export { extract, rulesFor, modeFor, decide, ruleFor, detailFor, isProtected, loadState, repoRulesFile, type Ask } from './permissions/index.js';
-export { configDir, resolvePath as modelsFile, loadRegistry, validateProvider, validateRegistry, probe, modelsMain, type Registry } from './models/index.js';
+export { resolvePath as modelsFile, loadRegistry, validateProvider, validateRegistry, probe, modelsMain, type Registry } from './models/index.js';
 export { backlogItems, backlogMain, backlogPlace, parseIndex, parseTitle, type BacklogItem } from './backlog/index.js';
 export { main, type Io } from './cli/main.js';
+export { configDir } from './configDir.js';
+export {
+  readRegistry, writeRegistry, registryFile, projectDir, gitRoot, RegistryError, type ProjectEntry, type ProjectOverrides,
+} from './registry/projects.js';
+export { doctor, type Check, type DoctorOptions, type Spawn } from './registry/doctor.js';

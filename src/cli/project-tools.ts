@@ -8,11 +8,11 @@ import { modelsMain } from '../models/index.js';
 import { backlogMain, backlogPlace } from '../backlog/index.js';
 import type { Io } from './main.js';
 
-export const PROJECT_COMMANDS = ['changes', 'permissions', 'permit', 'model', 'backlog'];
-export const PROJECT_VALUED = ['--status', '--endpoint', '--key-env', '--models'];
-export const PROJECT_FLAGS = ['--effort'];
+export const TOOL_COMMANDS = ['changes', 'permissions', 'permit', 'model', 'backlog'];
+export const TOOL_VALUED = ['--status', '--endpoint', '--key-env', '--models'];
+export const TOOL_FLAGS = ['--effort'];
 
-export const PROJECT_USAGE = `
+export const TOOL_USAGE = `
   changes snapshot|mirror|changed <baseline.json>
   changes mark <stage-files.json> [stage]
                                    the files a cycle changed (run in the project): record, mirror .env keys, list, per stage
@@ -64,7 +64,7 @@ function permit(io: Io, cwd: string, args: string[]): number {
   return 0;
 }
 
-/** Runs one of PROJECT_COMMANDS from the full command line <argv>. Returns the exit code. */
+/** Runs one of TOOL_COMMANDS from the full command line <argv>. Returns the exit code. */
 export async function projectTool(argv: string[], valued: string[], io: Io): Promise<number> {
   const env = io.env || process.env;
   const cwd = io.cwd || process.cwd();

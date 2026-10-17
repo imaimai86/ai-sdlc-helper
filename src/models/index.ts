@@ -6,6 +6,7 @@ import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
 import { has } from '../util.js';
+import { configDir } from '../configDir.js';
 
 export const TEST_TIMEOUT_MS = 10000;
 const TEST_BODY_MAX = 65536;
@@ -24,10 +25,10 @@ const isObject = (v: unknown): v is Record<string, any> => v !== null && typeof 
 export interface Where { env: NodeJS.ProcessEnv; platform: NodeJS.Platform | string; home: string }
 
 /**
- * The tool's user-level folder: $XDG_CONFIG_HOME/ai-sdlc-helper, %APPDATA%\ai-sdlc-helper on Windows, else
- * ~/.config/ai-sdlc-helper. <name> picks another folder name (the scripts before this package used "sdlc").
+ * A user-level folder <name>: $XDG_CONFIG_HOME/<name>, %APPDATA%\<name> on Windows, else ~/.config/<name>. Used for
+ * the folder of the scripts before this package ("sdlc"); the tool's own folder is configDir().
  */
-export function configDir({ env, platform, home }: Where, name = 'ai-sdlc-helper'): string {
+export function userDir({ env, platform, home }: Where, name: string): string {
   if (platform !== 'win32' && set(env.XDG_CONFIG_HOME)) return `${env.XDG_CONFIG_HOME}/${name}`;
   if (platform === 'win32' && set(env.APPDATA)) return path.win32.join(env.APPDATA, name);
   return `${home}/.config/${name}`;
@@ -41,9 +42,9 @@ export function configDir({ env, platform, home }: Where, name = 'ai-sdlc-helper
 export function resolvePath(where: Where, fileExists: (f: string) => boolean = fs.existsSync): { file: string; read: string } {
   const named = [where.env.AI_SDLC_HELPER_MODELS_FILE, where.env.SDLC_MODELS_FILE].find(set);
   if (named) return { file: named, read: named };
-  const join = (dir: string) => (where.platform === 'win32' && set(where.env.APPDATA) ? path.win32.join(dir, 'models.json') : `${dir}/models.json`);
-  const file = join(configDir(where));
-  const legacy = join(configDir(where, 'sdlc'));
+  const join = (dir: string) => (where.platform === 'win32' ? path.win32.join(dir, 'models.json') : `${dir}/models.json`);
+  const file = join(configDir({ ...where.env, HOME: where.home }, where.platform as NodeJS.Platform));
+  const legacy = join(userDir(where, 'sdlc'));
   return { file, read: !fileExists(file) && fileExists(legacy) ? legacy : file };
 }
 
