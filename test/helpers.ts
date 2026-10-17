@@ -26,10 +26,10 @@ export const pathWith = (...programs: string[]): NodeJS.ProcessEnv => {
 
 export interface CliResult { status: number; stdout: string; stderr: string }
 
-/** Runs the command line in-process, without a terminal to ask at. */
-export async function run(args: string[], env?: NodeJS.ProcessEnv): Promise<CliResult> {
+/** Runs the command line in-process, without a terminal to ask at (from <cwd> when given). */
+export async function run(args: string[], env?: NodeJS.ProcessEnv, cwd?: string): Promise<CliResult> {
   let stdout = '';
   let stderr = '';
-  const status = await main(args, { out: t => { stdout += `${t}\n`; }, err: t => { stderr += `${t}\n`; }, env });
+  const status = await main(args, { out: t => { stdout += `${t}\n`; }, err: t => { stderr += `${t}\n`; }, env, cwd });
   return { status, stdout, stderr };
 }

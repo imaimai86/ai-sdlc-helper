@@ -11,4 +11,8 @@ export {
 export { suggest, setupPlan, provision, locateTestDir, packagesBelow, describeProject, rankRunners } from './config/suggest.js';
 export { renderSkill, renderTemplate, skillNames } from './config/skills.js';
 export { argsProblem } from './cli/args.js';
+export { currentState, skipReason, snapshot, changed, mirror, mark, parseKeys, type Changed } from './changes/index.js';
+export { extract, rulesFor, modeFor, decide, ruleFor, detailFor, isProtected, loadState, repoRulesFile, type Ask } from './permissions/index.js';
+export { configDir, resolvePath as modelsFile, loadRegistry, validateProvider, validateRegistry, probe, modelsMain, type Registry } from './models/index.js';
+export { backlogItems, backlogMain, backlogPlace, parseIndex, parseTitle, type BacklogItem } from './backlog/index.js';
 export { main, type Io } from './cli/main.js';
