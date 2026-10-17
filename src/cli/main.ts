@@ -12,6 +12,7 @@ import {
 import { nodeRun } from '../config/node.js';
 import type { Language } from '../config/detect.js';
 import { argsProblem, parseArgs } from './args.js';
+import { PROJECT_COMMANDS, PROJECT_FLAGS, PROJECT_USAGE, PROJECT_VALUED, projects } from './projects.js';
 import { RUNNER_COMMANDS, RUNNER_FLAGS, RUNNER_USAGE, RUNNER_VALUED, runners } from './runners.js';
 
 export interface Io {
@@ -23,9 +24,9 @@ export interface Io {
   cwd?: string;
 }
 
-const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...RUNNER_COMMANDS];
-const VALUED = ['--runner', '--language', '--test-dir', '--use', ...RUNNER_VALUED];
-const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...RUNNER_FLAGS];
+const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS];
+const VALUED = ['--runner', '--language', '--test-dir', '--use', ...PROJECT_VALUED, ...RUNNER_VALUED];
+const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...PROJECT_FLAGS, ...RUNNER_FLAGS];
 
 export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
 
@@ -40,6 +41,7 @@ export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
   code-search [dir] [--list | --use <name|auto|none>]
                                    the code indexer the agents search with (graft, graphify, your own) or none
   skill <name> [dir]               a skill's text for this project
+${PROJECT_USAGE}
 ${RUNNER_USAGE}
   help, --help, --version`;
 
@@ -212,6 +214,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
     io.out(text.replace(/\n$/, ''));
     return 0;
   }
+  if (PROJECT_COMMANDS.includes(cmd)) return projects(a, io);
   const dir = path.resolve(cwd, dirArg || '.');
   if (!exists(dir)) { io.err(`ERROR: ${dir} does not exist`); return 2; }
 
