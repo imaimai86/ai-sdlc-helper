@@ -29,4 +29,6 @@ npm run check
 npm run build
 ```
 
+To follow work on several branches at once, see [docs/watching.md](docs/watching.md).
+
 MIT licensed.
