@@ -159,3 +159,33 @@ export function mark(target: string, stage: string, opts: ChangesOptions): void 
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, JSON.stringify(state));
 }
+
+export interface WorktreeChanges {
+  /** Files changed since the merge-base with <base> (committed) or not committed yet, sorted, each once. */
+  files: string[];
+  /** Entries of `git status` (a rename counts once). */
+  uncommitted: number;
+}
+
+const gitOrEmpty = (root: string, args: string[]): string => {
+  try { return execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return ''; }
+};
+
+/**
+ * What a pipeline's worktree changed: the files committed since its merge-base with <base> plus the uncommitted ones.
+ * No merge-base (an orphan or unknown base) leaves only the uncommitted part. Reads nothing outside <worktree>.
+ */
+export function worktreeChanges(worktree: string, base: string): WorktreeChanges {
+  const files = new Set<string>();
+  const mb = base ? gitOrEmpty(worktree, ['merge-base', 'HEAD', base]).trim() : '';
+  if (mb) for (const f of gitOrEmpty(worktree, ['diff', '--name-only', '-z', `${mb}..HEAD`]).split('\0')) if (f) files.add(f);
+  const st = gitOrEmpty(worktree, ['status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean);
+  let uncommitted = 0;
+  for (let i = 0; i < st.length; i++) {
+    const code = st[i].slice(0, 2);
+    files.add(st[i].slice(3));
+    uncommitted++;
+    if (/[RC]/.test(code)) i++; // the old path of a rename or copy follows
+  }
+  return { files: [...files].sort(), uncommitted };
+}

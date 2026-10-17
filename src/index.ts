@@ -11,7 +11,7 @@ export {
 export { suggest, setupPlan, provision, locateTestDir, packagesBelow, describeProject, rankRunners } from './config/suggest.js';
 export { renderSkill, renderTemplate, skillNames } from './config/skills.js';
 export { argsProblem } from './cli/args.js';
-export { currentState, skipReason, snapshot, changed, mirror, mark, parseKeys, type Changed } from './changes/index.js';
+export { currentState, skipReason, snapshot, changed, mirror, mark, parseKeys, worktreeChanges, type Changed } from './changes/index.js';
 export { extract, rulesFor, modeFor, decide, ruleFor, detailFor, isProtected, loadState, repoRulesFile, type Ask } from './permissions/index.js';
 export { resolvePath as modelsFile, loadRegistry, validateProvider, validateRegistry, probe, modelsMain, type Registry } from './models/index.js';
 export { backlogItems, backlogMain, backlogPlace, parseIndex, parseTitle, type BacklogItem } from './backlog/index.js';
@@ -29,3 +29,8 @@ export { parseNodeTest } from './runners/nodeTest.js';
 export { parseJUnit } from './runners/junit.js';
 export { Keys, testLayout, layoutFromEnv, type TestLayout } from './testcheck/keys.js';
 export * as testcheck from './testcheck/checks.js';
+export {
+  runContext, start, stop, restart, discard, statusLines, statusRecords, watchFrame, runChanges, allChanges, runWorktree, pickBase,
+  pipelineArgv, pipelineEnv, type RunContext, type Outcome,
+} from './runs/index.js';
+export { readRecord, recordedSlugs, registryDir, runState, type RunRecord } from './runs/records.js';

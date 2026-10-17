@@ -15,6 +15,7 @@ import { argsProblem, parseArgs } from './args.js';
 import { TOOL_COMMANDS, TOOL_FLAGS, TOOL_USAGE, TOOL_VALUED, projectTool } from './project-tools.js';
 import { PROJECT_COMMANDS, PROJECT_FLAGS, PROJECT_USAGE, PROJECT_VALUED, projects } from './projects.js';
 import { RUNNER_COMMANDS, RUNNER_FLAGS, RUNNER_USAGE, RUNNER_VALUED, runners } from './runners.js';
+import { RUNS_COMMANDS, RUNS_FLAGS, RUNS_USAGE, RUNS_VALUED, runs } from './runs.js';
 
 export interface Io {
   out(text: string): void;
@@ -25,9 +26,9 @@ export interface Io {
   cwd?: string;
 }
 
-const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS, ...TOOL_COMMANDS];
-const VALUED = ['--runner', '--language', '--test-dir', '--use', ...PROJECT_VALUED, ...RUNNER_VALUED, ...TOOL_VALUED];
-const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...PROJECT_FLAGS, ...RUNNER_FLAGS, ...TOOL_FLAGS];
+const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS, ...TOOL_COMMANDS, ...RUNS_COMMANDS];
+const VALUED = ['--runner', '--language', '--test-dir', '--use', ...PROJECT_VALUED, ...RUNNER_VALUED, ...TOOL_VALUED, ...RUNS_VALUED];
+const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...PROJECT_FLAGS, ...RUNNER_FLAGS, ...TOOL_FLAGS, ...RUNS_FLAGS];
 
 export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
 
@@ -43,7 +44,7 @@ export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
                                    the code indexer the agents search with (graft, graphify, your own) or none
   skill <name> [dir]               a skill's text for this project
 ${PROJECT_USAGE}
-${RUNNER_USAGE}${TOOL_USAGE}
+${RUNNER_USAGE}${TOOL_USAGE}${RUNS_USAGE}
   help, --help, --version`;
 
 const where = (d: string) => (d === '.' ? 'the project root' : d);
@@ -206,6 +207,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
   if (TOOL_COMMANDS.includes(a.positional[0])) return projectTool(argv, VALUED, io);
   const [cmd, dirArg, extra] = a.positional;
   if (RUNNER_COMMANDS.includes(cmd)) return runners(argv, io);
+  if (RUNS_COMMANDS.includes(cmd)) return runs(a, io);
   const languageArg = a.value('--language');
   if (languageArg !== undefined && !LANGUAGES.includes(languageArg as Language)) { io.err(`ERROR: --language must be javascript or typescript\n\n${USAGE}`); return 2; }
   for (const o of ['--runner', '--test-dir', '--use']) if (a.value(o) === '') { io.err(`ERROR: ${o} needs a value\n\n${USAGE}`); return 2; }

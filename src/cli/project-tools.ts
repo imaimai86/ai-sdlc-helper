@@ -6,6 +6,9 @@ import { changed, mark, mirror, snapshot } from '../changes/index.js';
 import { decide, permissionsMain, repoRulesFile } from '../permissions/index.js';
 import { modelsMain } from '../models/index.js';
 import { backlogMain, backlogPlace } from '../backlog/index.js';
+import { projectDir } from '../registry/projects.js';
+import { parseArgs } from './args.js';
+import { runCheckout, runsChanges } from './runs.js';
 import type { Io } from './main.js';
 
 export const TOOL_COMMANDS = ['changes', 'permissions', 'permit', 'model', 'backlog'];
@@ -18,8 +21,9 @@ export const TOOL_USAGE = `
                                    the files a cycle changed (run in the project): record, mirror .env keys, list, per stage
   permissions extract|args|mode|list|decide ...
                                    the actions stage agents were refused, and the rules their runs get
-  permit <slug> allow|always|deny [n|all]
-                                   decide the actions a pipeline's agent was refused; prints how many are still pending
+  permit <slug> allow|always|deny [n|all] [--project <name>]
+                                   decide the actions a pipeline's agent was refused (in its run's worktree when it
+                                   has one; always saves the rule in the main working tree); prints how many are still pending
   model path | list [--json] | get <provider> | remove <provider> | test <provider>/<model>
   model add <provider> --endpoint <url> --key-env <VAR> --models a,b [--effort]
   model add-model|remove-model <provider> <model>
@@ -27,7 +31,8 @@ export const TOOL_USAGE = `
   backlog [status[,status...]] [--status <list>] [--json]
                                    the backlog items with their status`;
 
-const CHANGES_USAGE = 'usage: ai-sdlc-helper changes snapshot|mirror|changed <baseline.json> | mark <stage-files.json> [stage]';
+const CHANGES_SUBS = ['snapshot', 'mirror', 'changed', 'mark'];
+const CHANGES_USAGE = 'usage: ai-sdlc-helper changes snapshot|mirror|changed <baseline.json> | mark <stage-files.json> [stage] | <slug> [--json] | --all [<slug>...]';
 const PERMIT_USAGE = 'Usage: ai-sdlc-helper permit <slug> allow|always|deny [n|all]';
 
 /** The project root for <dir>: the top of its git work tree, else <dir> itself. */
@@ -53,12 +58,15 @@ function changes(io: Io, cwd: string, [sub, file, stage]: string[]): number {
   return 0;
 }
 
-function permit(io: Io, cwd: string, args: string[]): number {
-  if (args.length < 2 || args.length > 3) { io.err(PERMIT_USAGE); return 2; }
-  const [slug, choice, which = 'all'] = args;
+/** Decides a pipeline's refused actions: in its run's worktree when it has one, else in this checkout. */
+function permit(io: Io, cwd: string, args: string[], env: NodeJS.ProcessEnv): number {
+  const a = parseArgs(args, ['--project']);
+  if (a.value('--project') === '') { io.err('ERROR: --project needs a value'); return 2; }
+  if (a.positional.length < 2 || a.positional.length > 3) { io.err(PERMIT_USAGE); return 2; }
+  const [slug, choice, which = 'all'] = a.positional;
   if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) { io.err(`Invalid slug '${slug}': lowercase letters, digits and dashes only`); return 2; }
-  const root = gitRoot(cwd);
-  const docs = path.join(root, backlogPlace(root).backlogDir, slug);
+  const root = a.value('--project') !== undefined ? projectDir(a.value('--project'), cwd, env) : gitRoot(cwd);
+  const docs = path.join(runCheckout(root, slug, env) || root, backlogPlace(root).backlogDir, slug);
   if (!exists(docs)) { io.err(`No pipeline for ${slug}`); return 1; }
   io.out(String(decide(path.join(docs, 'logs', 'permissions.json'), which, choice, repoRulesFile(root))));
   return 0;
@@ -73,9 +81,14 @@ export async function projectTool(argv: string[], valued: string[], io: Io): Pro
   const rest = [...argv.slice(0, at), ...argv.slice(at + 1)];
   try {
     switch (cmd) {
-      case 'changes': return changes(io, cwd, rest);
+      case 'changes': {
+        const c = parseArgs(argv, valued);
+        // changes <slug> and changes --all are the run forms; the rest are the sub-commands of a cycle's files.
+        if (c.flag('--all') || (c.positional.length === 2 && !CHANGES_SUBS.includes(c.positional[1]))) return runsChanges(c, io);
+        return changes(io, cwd, rest);
+      }
       case 'permissions': permissionsMain(rest, line => io.out(line), cwd); return 0;
-      case 'permit': return permit(io, cwd, rest);
+      case 'permit': return permit(io, cwd, rest, env);
       case 'model': return await modelsMain(rest, { env, out: line => io.out(line), err: line => io.err(line) });
       case 'backlog': {
         const root = gitRoot(cwd);
