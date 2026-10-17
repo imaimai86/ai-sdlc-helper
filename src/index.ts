@@ -12,3 +12,11 @@ export { suggest, setupPlan, provision, locateTestDir, packagesBelow, describePr
 export { renderSkill, renderTemplate, skillNames } from './config/skills.js';
 export { argsProblem } from './cli/args.js';
 export { main, type Io } from './cli/main.js';
+export { ADAPTERS, runSuite, runSuites, mergeResults, summary, type RunOptions } from './runners/run.js';
+export type { RunResult, TestCase, SuiteError } from './runners/types.js';
+export { parseJestLike } from './runners/jest.js';
+export { parseMocha } from './runners/mocha.js';
+export { parseNodeTest } from './runners/nodeTest.js';
+export { parseJUnit } from './runners/junit.js';
+export { Keys, testLayout, layoutFromEnv, type TestLayout } from './testcheck/keys.js';
+export * as testcheck from './testcheck/checks.js';

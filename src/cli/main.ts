@@ -12,6 +12,7 @@ import {
 import { nodeRun } from '../config/node.js';
 import type { Language } from '../config/detect.js';
 import { argsProblem, parseArgs } from './args.js';
+import { RUNNER_COMMANDS, RUNNER_FLAGS, RUNNER_USAGE, RUNNER_VALUED, runners } from './runners.js';
 
 export interface Io {
   out(text: string): void;
@@ -22,9 +23,9 @@ export interface Io {
   cwd?: string;
 }
 
-const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help'];
-const VALUED = ['--runner', '--language', '--test-dir', '--use'];
-const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version'];
+const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...RUNNER_COMMANDS];
+const VALUED = ['--runner', '--language', '--test-dir', '--use', ...RUNNER_VALUED];
+const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...RUNNER_FLAGS];
 
 export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
 
@@ -39,6 +40,7 @@ export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
   code-search [dir] [--list | --use <name|auto|none>]
                                    the code indexer the agents search with (graft, graphify, your own) or none
   skill <name> [dir]               a skill's text for this project
+${RUNNER_USAGE}
   help, --help, --version`;
 
 const where = (d: string) => (d === '.' ? 'the project root' : d);
@@ -199,6 +201,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
   if (problem) { io.err(`ERROR: ${problem}\n\n${USAGE}`); return 2; }
   const a = parseArgs(argv, VALUED);
   const [cmd, dirArg, extra] = a.positional;
+  if (RUNNER_COMMANDS.includes(cmd)) return runners(argv, io);
   const languageArg = a.value('--language');
   if (languageArg !== undefined && !LANGUAGES.includes(languageArg as Language)) { io.err(`ERROR: --language must be javascript or typescript\n\n${USAGE}`); return 2; }
   for (const o of ['--runner', '--test-dir', '--use']) if (a.value(o) === '') { io.err(`ERROR: ${o} needs a value\n\n${USAGE}`); return 2; }
