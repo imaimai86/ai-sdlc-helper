@@ -1,0 +1,186 @@
+// Permission requests of the SDLC agents: what a headless `claude -p` agent was refused, and what the developer decided.
+// The state file (<backlogDir>/<slug>/logs/permissions.json) holds: pending (asks not decided yet), allow (rules for this
+// run), bypass (stage keys run without permission checks), denied (asks refused). Rules are never secrets: a tool name and
+// a path or command.
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+/** The repository's saved allow rules, in its main working tree. */
+export const REPO_RULES = '.claude/sdlc-permissions.json';
+const PATH_TOOLS = ['Edit', 'Write', 'NotebookEdit', 'MultiEdit'];
+export const CHOICES = ['allow', 'always', 'deny'] as const;
+export type Choice = typeof CHOICES[number];
+
+export interface Ask { stage: string; tool: string; detail: string; rule: string; protected: boolean }
+export interface PermissionState { pending: Ask[]; allow: string[]; bypass: string[]; denied: { tool: string; detail: string }[] }
+
+const readJson = (file: string | undefined, fallback: any): any => {
+  try { return JSON.parse(fs.readFileSync(file!, 'utf8')); } catch { return fallback; }
+};
+const emptyState = (): PermissionState => ({ pending: [], allow: [], bypass: [], denied: [] });
+
+export function loadState(file: string): PermissionState {
+  const s = readJson(file, null);
+  const e = emptyState();
+  if (!s || typeof s !== 'object') return e;
+  for (const k of Object.keys(e) as (keyof PermissionState)[]) if (Array.isArray(s[k])) (e as any)[k] = s[k];
+  return e;
+}
+const saveState = (file: string, s: PermissionState): void => {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(s, null, 2)}\n`);
+};
+
+const pathOf = (i: Record<string, any>): string =>
+  (typeof i.file_path === 'string' ? i.file_path : typeof i.notebook_path === 'string' ? i.notebook_path : '');
+
+/** The denial as a short, narrow allow rule: the path for a file tool, the first command words for Bash, else the tool name. */
+export function ruleFor(tool: string, input: unknown, cwd: string): string {
+  const i: Record<string, any> = input && typeof input === 'object' ? input : {};
+  if (PATH_TOOLS.includes(tool)) {
+    const p = pathOf(i);
+    if (!p) return tool;
+    const rel = path.isAbsolute(p) ? path.relative(cwd, p) : p;
+    return `${tool}(./${rel.replace(/^\.\//, '')})`;
+  }
+  if (tool === 'Bash' && typeof i.command === 'string') {
+    const words = i.command.trim().split(/\s+/);
+    const head = words[0] && /^[\w./-]+$/.test(words[0]) ? [words[0]] : [];
+    if (head.length && words[1] && /^[a-z][\w-]*$/.test(words[1])) head.push(words[1]);
+    return head.length ? `Bash(${head.join(' ')}:*)` : 'Bash';
+  }
+  return tool;
+}
+
+/** What the person is shown: the file, the command, or the tool's input in one line. */
+export function detailFor(tool: string, input: unknown, cwd: string): string {
+  const i: Record<string, any> = input && typeof input === 'object' ? input : {};
+  const p = pathOf(i);
+  if (p) return path.isAbsolute(p) ? path.relative(cwd, p) : p;
+  if (typeof i.command === 'string') return i.command.replace(/\s+/g, ' ').trim().slice(0, 200);
+  return JSON.stringify(i).slice(0, 200);
+}
+
+/** A path under a `.claude/` folder is refused as a "sensitive file" even when an allow rule names it: only a bypass lifts it. */
+export const isProtected = (tool: string, detail: string): boolean => PATH_TOOLS.includes(tool) && /(^|\/)\.claude\//.test(detail);
+
+/**
+ * Reads the agent's `--output-format json` result: writes its text to <logFile>, and records the denials as pending asks
+ * (unless decided). A file that is not JSON (an older agent, a provider error) is copied to the log unchanged.
+ * Returns the number of pending asks.
+ */
+export function extract({ jsonFile, logFile, stateFile, stage, cwd, errFile }: {
+  jsonFile: string; logFile: string; stateFile: string; stage: string; cwd: string; errFile?: string;
+}): number {
+  const raw = fs.existsSync(jsonFile) ? fs.readFileSync(jsonFile, 'utf8') : '';
+  const err = errFile && fs.existsSync(errFile) ? fs.readFileSync(errFile, 'utf8') : '';
+  let data: any = null;
+  try { data = JSON.parse(raw); } catch { data = null; }
+  const state = loadState(stateFile);
+  if (!data || typeof data !== 'object') {
+    fs.writeFileSync(logFile, raw + err);
+    return state.pending.length;
+  }
+  const text = typeof data.result === 'string' ? data.result : '';
+  const note = data.subtype && data.subtype !== 'success' ? `[agent ended: ${data.subtype}]\n` : '';
+  fs.writeFileSync(logFile, `${note}${text}${text.endsWith('\n') ? '' : '\n'}${err}`);
+  for (const d of Array.isArray(data.permission_denials) ? data.permission_denials : []) {
+    const tool = String(d.tool_name || '');
+    if (!tool) continue;
+    const detail = detailFor(tool, d.tool_input, cwd);
+    const ask: Ask = { stage, tool, detail, rule: ruleFor(tool, d.tool_input, cwd), protected: isProtected(tool, detail) };
+    const same = (a: { tool: string; detail: string }) => a.tool === ask.tool && a.detail === ask.detail;
+    if (state.denied.some(same) || state.pending.some(a => same(a) && a.stage === stage)) continue;
+    if (!ask.protected && state.allow.includes(ask.rule)) continue;
+    state.pending.push(ask);
+  }
+  saveState(stateFile, state);
+  return state.pending.length;
+}
+
+/** Allow rules for a stage's run: this run's decisions plus the repository's saved ones. */
+export function rulesFor(docsDir: string, repoFile: string): string[] {
+  const run = loadState(path.join(docsDir, 'logs', 'permissions.json')).allow;
+  const repo = readJson(repoFile, {});
+  const saved: string[] = Array.isArray(repo.allow) ? repo.allow.filter((r: unknown) => typeof r === 'string') : [];
+  return [...new Set([...saved, ...run])];
+}
+
+/** The permission mode a stage's agent runs with: bypassPermissions once a protected path was allowed for it. */
+export const modeFor = (docsDir: string, stage: string): 'bypassPermissions' | 'acceptEdits' =>
+  (loadState(path.join(docsDir, 'logs', 'permissions.json')).bypass.includes(stage) ? 'bypassPermissions' : 'acceptEdits');
+
+/**
+ * Applies a decision to pending asks (<which>: an index or "all"). `allow` grants for this run (a protected path lifts the
+ * checks for that stage), `always` also saves a rule in the repository file (never for a protected path), `deny` records
+ * the refusal so it does not ask again. Returns the number still pending; throws on an unknown choice or index.
+ */
+export function decide(stateFile: string, which: string, choice: string, repoFile?: string): number {
+  if (!(CHOICES as readonly string[]).includes(choice)) throw new Error(`choice must be allow, always or deny, not '${choice}'`);
+  const state = loadState(stateFile);
+  const picked = which === 'all' ? state.pending.map((_, i) => i) : [Number(which)];
+  if (picked.some(i => !Number.isInteger(i) || i < 0 || i >= state.pending.length)) throw new Error(`no pending request '${which}'`);
+  const repo = readJson(repoFile, {});
+  const saved: string[] = Array.isArray(repo.allow) ? repo.allow : [];
+  let isSaved = false;
+  for (const i of picked) {
+    const ask = state.pending[i];
+    if (choice === 'deny') {
+      state.denied.push({ tool: ask.tool, detail: ask.detail });
+    } else if (ask.protected) {
+      if (!state.bypass.includes(ask.stage)) state.bypass.push(ask.stage);
+    } else {
+      if (!state.allow.includes(ask.rule)) state.allow.push(ask.rule);
+      if (choice === 'always' && !saved.includes(ask.rule)) { saved.push(ask.rule); isSaved = true; }
+    }
+  }
+  state.pending = state.pending.filter((_, i) => !picked.includes(i));
+  saveState(stateFile, state);
+  if (isSaved && repoFile) {
+    fs.mkdirSync(path.dirname(repoFile), { recursive: true });
+    fs.writeFileSync(repoFile, `${JSON.stringify({ ...repo, allow: saved }, null, 2)}\n`);
+  }
+  return state.pending.length;
+}
+
+/** The repository's saved rules file: in the main working tree, whichever checkout <root> is. */
+export function repoRulesFile(root: string): string {
+  const r = spawnSync('git', ['-C', root, 'worktree', 'list', '--porcelain'], { encoding: 'utf8' });
+  const main = r.status === 0 ? (r.stdout.split('\n').find(l => l.startsWith('worktree ')) || '').slice('worktree '.length) : '';
+  return path.join(main || root, REPO_RULES);
+}
+
+/**
+ * `ai-sdlc-helper permissions extract <agent.json> <log> <state.json> <stage> <cwd> [<stderr file>] | args <docs-dir>
+ * <stage> [<repo-rules.json>] | mode <docs-dir> <stage> | list <state.json> | decide <state.json> <n|all>
+ * allow|always|deny [<repo-rules.json>]`. Relative paths are taken from <cwd>. Throws on an error.
+ */
+export function permissionsMain(argv: string[], out: (line: string) => void, cwd: string): void {
+  const [cmd, ...a] = argv;
+  const at = (f: string | undefined) => (f === undefined ? f : path.resolve(cwd, f));
+  switch (cmd) {
+    case 'extract': {
+      const [jsonFile, logFile, stateFile, stage, agentCwd, errFile] = a;
+      if (!jsonFile || !logFile || !stateFile || !stage || !agentCwd) {
+        throw new Error('extract: <agent.json> <log> <state.json> <stage> <cwd> [<stderr file>]');
+      }
+      out(String(extract({ jsonFile: at(jsonFile)!, logFile: at(logFile)!, stateFile: at(stateFile)!, stage, cwd: agentCwd, errFile: at(errFile) })));
+      break;
+    }
+    case 'args':
+      for (const r of rulesFor(at(a[0] || '.')!, at(a[2] || REPO_RULES)!)) out(r);
+      break;
+    case 'mode':
+      out(modeFor(at(a[0] || '.')!, a[1]));
+      break;
+    case 'list':
+      out(JSON.stringify(loadState(at(a[0] || '')!).pending));
+      break;
+    case 'decide':
+      out(String(decide(at(a[0] || '')!, a[1], a[2], at(a[3] || REPO_RULES))));
+      break;
+    default:
+      throw new Error('Usage: ai-sdlc-helper permissions extract|args|mode|list|decide ...');
+  }
+}

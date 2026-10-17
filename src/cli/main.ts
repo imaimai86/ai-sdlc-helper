@@ -12,6 +12,7 @@ import {
 import { nodeRun } from '../config/node.js';
 import type { Language } from '../config/detect.js';
 import { argsProblem, parseArgs } from './args.js';
+import { TOOL_COMMANDS, TOOL_FLAGS, TOOL_USAGE, TOOL_VALUED, projectTool } from './project-tools.js';
 import { PROJECT_COMMANDS, PROJECT_FLAGS, PROJECT_USAGE, PROJECT_VALUED, projects } from './projects.js';
 import { RUNNER_COMMANDS, RUNNER_FLAGS, RUNNER_USAGE, RUNNER_VALUED, runners } from './runners.js';
 
@@ -24,9 +25,9 @@ export interface Io {
   cwd?: string;
 }
 
-const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS];
-const VALUED = ['--runner', '--language', '--test-dir', '--use', ...PROJECT_VALUED, ...RUNNER_VALUED];
-const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...PROJECT_FLAGS, ...RUNNER_FLAGS];
+const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS, ...TOOL_COMMANDS];
+const VALUED = ['--runner', '--language', '--test-dir', '--use', ...PROJECT_VALUED, ...RUNNER_VALUED, ...TOOL_VALUED];
+const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...PROJECT_FLAGS, ...RUNNER_FLAGS, ...TOOL_FLAGS];
 
 export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
 
@@ -42,7 +43,7 @@ export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
                                    the code indexer the agents search with (graft, graphify, your own) or none
   skill <name> [dir]               a skill's text for this project
 ${PROJECT_USAGE}
-${RUNNER_USAGE}
+${RUNNER_USAGE}${TOOL_USAGE}
   help, --help, --version`;
 
 const where = (d: string) => (d === '.' ? 'the project root' : d);
@@ -202,6 +203,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
   const problem = argsProblem(argv, { commands: COMMANDS, valued: VALUED, flags: FLAGS });
   if (problem) { io.err(`ERROR: ${problem}\n\n${USAGE}`); return 2; }
   const a = parseArgs(argv, VALUED);
+  if (TOOL_COMMANDS.includes(a.positional[0])) return projectTool(argv, VALUED, io);
   const [cmd, dirArg, extra] = a.positional;
   if (RUNNER_COMMANDS.includes(cmd)) return runners(argv, io);
   const languageArg = a.value('--language');
