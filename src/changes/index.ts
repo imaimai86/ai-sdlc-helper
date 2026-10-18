@@ -179,7 +179,8 @@ export function worktreeChanges(worktree: string, base: string): WorktreeChanges
   const files = new Set<string>();
   const mb = base ? gitOrEmpty(worktree, ['merge-base', 'HEAD', base]).trim() : '';
   if (mb) for (const f of gitOrEmpty(worktree, ['diff', '--name-only', '-z', `${mb}..HEAD`]).split('\0')) if (f) files.add(f);
-  const st = gitOrEmpty(worktree, ['status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean);
+  // --no-optional-locks: a status read must not take index.lock while the pipeline may be committing in this worktree.
+  const st = gitOrEmpty(worktree, ['--no-optional-locks', 'status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean);
   let uncommitted = 0;
   for (let i = 0; i < st.length; i++) {
     const code = st[i].slice(0, 2);
