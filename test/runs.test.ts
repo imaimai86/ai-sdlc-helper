@@ -47,6 +47,9 @@ function buildTemplate(): string {
   for (const s of SLUGS) w(`Docs/backlog/${s}/brief.md`, `# ${s}\n`);
   w('.gitignore', 'node_modules/\n/graft/\nran.txt\nsleep.pid\nsetup.txt\nDocs/backlog/*/logs/\n');
   git(r, 'init', '-q', '-b', 'main');
+  // No background maintenance or gc: they create and delete files in .git while the template is copied.
+  git(r, 'config', 'maintenance.auto', 'false');
+  git(r, 'config', 'gc.auto', '0');
   git(r, 'add', '-A');
   git(r, 'commit', '-q', '-m', 'init');
   fs.writeFileSync(path.join(base, 'stub.sh'), STUB, { mode: 0o755 });

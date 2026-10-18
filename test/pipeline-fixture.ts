@@ -97,6 +97,9 @@ function buildTemplate(): string {
   };
   for (const [f, v] of Object.entries(files)) write(dir, path.normalize(f), typeof v === 'string' ? v : `${JSON.stringify(v, null, 2)}\n`);
   git(dir, 'init', '-q', '-b', 'main');
+  // No background maintenance or gc: they create and delete files in .git while the template is copied.
+  git(dir, 'config', 'maintenance.auto', 'false');
+  git(dir, 'config', 'gc.auto', '0');
   git(dir, 'config', 'user.name', 't');
   git(dir, 'config', 'user.email', 't@t');
   git(dir, 'config', 'commit.gpgsign', 'false');
