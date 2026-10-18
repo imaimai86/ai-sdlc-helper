@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { CONFIG_FILE, exists, has, readJson, readSettings, rel, type Json } from '../util.js';
+import { shellArgv } from '../shell.js';
 import {
   PLACEHOLDER_TEST, RUNNERS, SCAN_DEPTH, SKIP_DIRS, detect, detectPackage, packageManager, typeScriptEvidence,
   type Language, type PackageManager,
@@ -355,7 +356,8 @@ export function provision(dir: string, runner: string, {
   const steps: { cmd: string; status: number | null; output: string }[] = [];
   if (dryRun) return { ok: true, plan, written, skipped, steps, dryRun: true };
   const sh = (cmd: string) => {
-    const r = run('sh', ['-c', cmd], { cwd: dir, encoding: 'utf8', stdio: 'pipe', maxBuffer: 64 * 1024 * 1024 });
+    const a = shellArgv(cmd);
+    const r = run(a.file, a.args, { cwd: dir, encoding: 'utf8', stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, windowsVerbatimArguments: a.windowsVerbatimArguments });
     steps.push({ cmd, status: r.status, output: `${r.stdout || ''}${r.stderr || ''}`.slice(-4000) });
     return r.status === 0;
   };

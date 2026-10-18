@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { exists, shellWord } from '../util.js';
+import { onPath } from '../shell.js';
 import { codeSearchGuide } from '../config/codeSearch.js';
 import { allowedTools, layout, resolve } from '../config/settings.js';
 import { snapshot } from '../changes/index.js';
@@ -50,7 +51,7 @@ const numberEnv = (env: NodeJS.ProcessEnv, name: string, fallback: number): numb
 
 /** `ai-sdlc-helper run --file`: the installed command when it is on PATH, else this package's own bin with this Node. */
 export function defaultTestFileCmd(env: NodeJS.ProcessEnv): string {
-  if (spawnSync('sh', ['-c', 'command -v ai-sdlc-helper'], { env, encoding: 'utf8' }).status === 0) return 'ai-sdlc-helper run --file';
+  if (onPath('ai-sdlc-helper', { env })) return 'ai-sdlc-helper run --file';
   const bin = fileURLToPath(new URL('../bin.js', import.meta.url));
   return exists(bin) ? `${shellWord(process.execPath)} ${shellWord(bin)} run --file` : 'ai-sdlc-helper run --file';
 }

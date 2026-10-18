@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { readPackage, shellQuote, type Json } from '../util.js';
+import { onPath } from '../shell.js';
 
 /**
  * The Node version a project asks for. A pin (.nvmrc, .node-version, .tool-versions, package.json volta.node) names the
@@ -60,13 +60,12 @@ export function satisfiesMajor(range: string, major: number): boolean {
 export const NODE_MANAGERS = ['fnm', 'volta', 'nvm', 'npx'] as const;
 export type NodeManager = typeof NODE_MANAGERS[number];
 
-const onPath = (cmd: string, env: NodeJS.ProcessEnv) => spawnSync('sh', ['-c', `command -v ${cmd}`], { encoding: 'utf8', env }).status === 0;
 const nvmScript = (env: NodeJS.ProcessEnv) => path.join(env.NVM_DIR || path.join(env.HOME || '', '.nvm'), 'nvm.sh');
 
 /** Whether a Node version manager can be used here. */
 export function managerAvailable(m: NodeManager, env: NodeJS.ProcessEnv = process.env): boolean {
   if (m === 'nvm') return fs.existsSync(nvmScript(env));
-  return onPath(m, env);
+  return onPath(m, { env });
 }
 
 /** <cmd> run with Node <version> through <manager>. */

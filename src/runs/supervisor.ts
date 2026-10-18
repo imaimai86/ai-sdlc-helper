@@ -3,13 +3,14 @@
 // pipeline and everything it started; when the pipeline ends it writes the final run record. It is plain JavaScript run
 // with `node -e`, so it works the same from src/ (tests) and dist/ and needs no file of its own.
 //
-// Windows: there is no `sh` for setup commands, no `ps` to find the pipeline's children (only the pipeline itself is
-// signalled), and a detached process gets its own console. The controls are made for macOS and Linux.
+// Windows: setup commands run with the shell of shellArgv (Git's sh.exe, else cmd.exe), and stopping uses
+// `taskkill /T /F`, which ends the pipeline and its children at once (there is no ps to walk the tree).
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import type { RunRecord } from './records.js';
 
-export interface SetupStep { name: string; dir: string; cmd: string }
+/** A suite's setup command; argv is how it starts (shell.ts shellArgv: sh -c, or a Windows shell). */
+export interface SetupStep { name: string; dir: string; cmd: string; argv: string[] }
 
 export interface Job {
   slug: string;
@@ -61,7 +62,6 @@ function finish(rc, message) {
 // The pipeline and every process below it (agents, test runs), from one ps listing.
 function tree(pid) {
   const all = [pid];
-  if (process.platform === 'win32') return all;
   const r = spawnSync('ps', ['-A', '-o', 'pid=,ppid='], { encoding: 'utf8' });
   const kids = new Map();
   for (const line of String(r.stdout || '').split('\n')) {
@@ -75,6 +75,7 @@ function tree(pid) {
 function stop() {
   stopping = true;
   if (child && child.exitCode === null && child.signalCode === null) {
+    if (process.platform === 'win32') { spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }); return; }
     for (const pid of tree(child.pid)) { try { process.kill(pid, 'SIGTERM'); } catch (e) { /* gone */ } }
   }
 }
@@ -84,7 +85,8 @@ const codeOf = (code, signal) => (code !== null ? code : 128 + ((signal && os.co
 
 function runStep(argv, opts) {
   return new Promise(resolve => {
-    child = spawn(argv[0], argv.slice(1), Object.assign({ stdio: ['ignore', out, out] }, opts));
+    const verbatim = process.platform === 'win32' && /^(?:.*\\)?cmd(?:\.exe)?$/i.test(argv[0]);
+    child = spawn(argv[0], argv.slice(1), Object.assign({ stdio: ['ignore', out, out], windowsVerbatimArguments: verbatim, windowsHide: true }, opts));
     child.on('error', e => resolve({ code: 127, error: e.message }));
     child.on('exit', (code, signal) => resolve({ code: codeOf(code, signal) }));
   });
@@ -94,7 +96,7 @@ function runStep(argv, opts) {
   for (const s of job.setup) {
     if (stopping) return finish(130, 'stopped during setup');
     fs.writeSync(out, '== ' + now() + ' setup ' + s.name + ' (' + s.dir + '): ' + s.cmd + '\n');
-    const r = await runStep(['sh', '-c', s.cmd], { cwd: s.dir });
+    const r = await runStep(s.argv, { cwd: s.dir });
     if (r.code !== 0) return finish(r.code, 'setup of suite ' + s.name + ' failed (exit ' + r.code + '): ' + s.cmd + (r.error ? ' (' + r.error + ')' : '') + '; see run.out');
   }
   if (job.setup.length) { try { fs.unlinkSync(job.setupMarker); } catch (e) { /* gone */ } }

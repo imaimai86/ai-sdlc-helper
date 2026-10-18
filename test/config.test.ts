@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import { detect, literalList } from '../src/config/detect.js';
-import { resolve, testDir, worktreeBase } from '../src/config/settings.js';
+import { resolve, testDir, testRunDefaults, workerLimit, worktreeBase } from '../src/config/settings.js';
 import { locateTestDir as locateOf, provision, setupPlan, suggest as suggestOf } from '../src/config/suggest.js';
 import { project, run } from './helpers.js';
 
@@ -221,6 +221,30 @@ describe('settings', () => {
     expect(errorsOf(project({ 'package.json': { scripts: { test: 'jest' } }, 'sdlc.config.json': { suites: [{ name: 'a' }, { name: 'a' }] } })))
       .toContain('suite name "a" is used twice');
     expect(errorsOf(project({ 'package.json': {} }))).toContain('no test suite found');
+  });
+
+  test('tests: retry and maxWorkers, unset by default; validated with the setting at fault; show prints what they come to', async () => {
+    const jest = { 'package.json': { scripts: { test: 'jest' } } };
+    expect(ok(project(jest)).tests).toEqual({ retry: null, maxWorkers: null });
+    expect(ok(project({ ...jest, 'sdlc.config.json': { tests: { retry: false, maxWorkers: 3 } } })).tests).toEqual({ retry: false, maxWorkers: 3 });
+    expect(ok(project({ ...jest, 'sdlc.config.json': { tests: { maxWorkers: 'auto' } } })).tests).toEqual({ retry: null, maxWorkers: 'auto' });
+    expect(ok(project({ ...jest, 'sdlc.config.json': { tests: { maxWorkers: null } } })).tests.maxWorkers).toBeNull();
+
+    const bad = errorsOf(project({ ...jest, 'sdlc.config.json': { tests: { retry: 'yes', maxWorkers: 0, extra: 1 } } }));
+    expect(bad).toContain('tests.retry: must be true or false');
+    expect(bad).toContain('tests.maxWorkers: must be a whole number above 0, "auto" or null (got 0)');
+    expect(bad).toContain('tests.extra: unknown setting');
+    for (const v of [1.5, -2, 'half', '4']) expect(errorsOf(project({ ...jest, 'sdlc.config.json': { tests: { maxWorkers: v } } }))).toContain('tests.maxWorkers: must be');
+
+    expect([workerLimit(null), workerLimit(undefined), workerLimit(6), workerLimit('auto', 10), workerLimit('auto', 3), workerLimit('auto', 1)])
+      .toEqual([undefined, undefined, 6, 5, 1, 1]);
+    expect(testRunDefaults({ retry: null, maxWorkers: null })).toEqual({ pipeline: { retry: true, maxWorkers: null }, run: { retry: false, maxWorkers: null } });
+    expect(testRunDefaults({ retry: false, maxWorkers: 'auto' }, 8)).toEqual({ pipeline: { retry: false, maxWorkers: 4 }, run: { retry: false, maxWorkers: 4 } });
+    expect(testRunDefaults({ retry: true, maxWorkers: 2 }).run).toEqual({ retry: true, maxWorkers: 2 });
+
+    const shown = JSON.parse((await cli('show', project({ ...jest, 'sdlc.config.json': { tests: { maxWorkers: 2 } } }))).stdout);
+    expect(shown.tests).toEqual({ retry: null, maxWorkers: 2 });
+    expect(shown.testRuns).toEqual({ pipeline: { retry: true, maxWorkers: 2 }, run: { retry: false, maxWorkers: 2 } });
   });
 
   test('test folder: the fixed part in front of the globs, inside the suite folder', async () => {

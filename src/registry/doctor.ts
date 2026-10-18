@@ -4,13 +4,14 @@ import { exists, readSettings } from '../util.js';
 import { codeSearchErrors, codeSearchFor } from '../config/codeSearch.js';
 import { nodeRun } from '../config/node.js';
 import { resolve, type Config } from '../config/settings.js';
+import { shellArgv, which } from '../shell.js';
 
 /** Runs a program and waits for it; status is null when it could not be started. */
-export type Spawn = (cmd: string, args: string[], opts: { cwd?: string; env: NodeJS.ProcessEnv }) =>
+export type Spawn = (cmd: string, args: string[], opts: { cwd?: string; env: NodeJS.ProcessEnv; windowsVerbatimArguments?: boolean }) =>
   { status: number | null; stdout: string; stderr: string };
 
-export const defaultSpawn: Spawn = (cmd, args, { cwd, env }) => {
-  const r = spawnSync(cmd, args, { cwd, env, encoding: 'utf8' });
+export const defaultSpawn: Spawn = (cmd, args, { cwd, env, windowsVerbatimArguments }) => {
+  const r = spawnSync(cmd, args, { cwd, env, encoding: 'utf8', windowsVerbatimArguments });
   return { status: r.error ? null : r.status, stdout: r.stdout || '', stderr: r.stderr || (r.error ? r.error.message : '') };
 };
 
@@ -27,6 +28,8 @@ export interface Check {
 export interface DoctorOptions {
   env?: NodeJS.ProcessEnv;
   spawn?: Spawn;
+  /** Finds a program on PATH (default: shell.ts which, with PATHEXT on Windows). */
+  which?: (name: string, env: NodeJS.ProcessEnv) => string | null;
   /** The Node running the tool (process.versions.node). */
   nodeVersion?: string;
   /** Run each suite's test command once. */
@@ -63,9 +66,9 @@ export function doctor(dir: string, opts: DoctorOptions = {}): Check[] {
   add({ name: 'git repository', ok: isRepo, required: true, detail: isRepo ? root : `${dir} is not in a git repository`,
     fix: `run git init in ${dir}, or point doctor at a git repository` });
 
-  const claude = spawn('sh', ['-c', 'command -v claude'], { env });
-  add({ name: 'claude CLI', ok: claude.status === 0, required: true,
-    detail: claude.status === 0 ? claude.stdout.trim() : 'the claude command is not on PATH',
+  const claude = (opts.which || ((name, e) => which(name, { env: e })))('claude', env);
+  add({ name: 'claude CLI', ok: claude !== null, required: true,
+    detail: claude !== null ? claude : 'the claude command is not on PATH',
     fix: 'install Claude Code (npm install -g @anthropic-ai/claude-code) and make sure claude is on PATH' });
 
   const { config, errors, warnings } = resolve(root, { env });
@@ -91,7 +94,8 @@ export function doctor(dir: string, opts: DoctorOptions = {}): Check[] {
 
   if (opts.runTests && config) {
     for (const s of config.suites) {
-      const r = spawn('sh', ['-c', s.runCmd], { cwd: root, env });
+      const a = shellArgv(s.runCmd, { env });
+      const r = spawn(a.file, a.args, { cwd: root, env, windowsVerbatimArguments: a.windowsVerbatimArguments });
       add({ name: `tests: ${s.name}`, ok: r.status === 0, required: true,
         detail: r.status === 0 ? `${s.runCmd} passed` : `${s.runCmd} exited ${r.status ?? 'without starting'}${tail(r.stderr || r.stdout) ? `:\n${tail(r.stderr || r.stdout)}` : ''}`,
         fix: `make the suite pass (run it yourself: ${s.runCmd})` });

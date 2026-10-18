@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { ASSETS_DIR, exists, type Json } from '../util.js';
+import { onPath as found } from '../shell.js';
 
 /**
  * Code search: a code indexer (graft, graphify, or one the project declares) or Grep/Glob. An indexer is used when its
@@ -35,7 +35,7 @@ export const SEARCH_SETTINGS = ['auto', 'none'];
 export const PARTS_DIR = path.join(ASSETS_DIR, 'prompts', 'parts');
 
 const PROGRAM = /^[\w.@+-]+$/;
-const onPath = (cmd: string, env: NodeJS.ProcessEnv) => PROGRAM.test(cmd) && spawnSync('sh', ['-c', `command -v ${cmd}`], { encoding: 'utf8', env }).status === 0;
+const onPath = (cmd: string, env: NodeJS.ProcessEnv) => PROGRAM.test(cmd) && found(cmd, { env });
 
 /** The built-in indexers merged with the project's agent.codeIndexers. */
 export function codeIndexers(file: Json = {}): Record<string, CodeIndexer> {

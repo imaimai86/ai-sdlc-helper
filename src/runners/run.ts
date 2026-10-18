@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { wrapCommand, type NodeRun } from '../config/node.js';
+import { shellArgv } from '../shell.js';
 import { jestAdapter } from './jest.js';
 import { junitAdapter } from './junit.js';
 import { mochaAdapter } from './mocha.js';
@@ -54,7 +55,10 @@ function runOnce(suite: RunSuite, opts: RunOptions): RunResult {
     maxWorkers: opts.maxWorkers,
     wrap: cmd => (node && node.switchTo && node.manager ? wrapCommand(cmd, node.switchTo, node.manager) : cmd),
     sh: (command, where = cwd, extraEnv = {}) => {
-      const r = spawn('sh', ['-c', command], { cwd: where, encoding: 'utf8', env: { ...env, ...extraEnv }, maxBuffer: 256 * 1024 * 1024 });
+      const a = shellArgv(command, { env });
+      const r = spawn(a.file, a.args, {
+        cwd: where, encoding: 'utf8', env: { ...env, ...extraEnv }, maxBuffer: 256 * 1024 * 1024, windowsVerbatimArguments: a.windowsVerbatimArguments,
+      });
       return { status: r.status === null ? 1 : r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
     },
     read: f => { try { return fs.readFileSync(f, 'utf8'); } catch { return null; } },

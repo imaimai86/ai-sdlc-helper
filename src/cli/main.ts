@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { CONFIG_FILE, exists, readJson, readSettings, rel } from '../util.js';
 import { detect } from '../config/detect.js';
 import { SEARCH_SETTINGS, codeIndexers, codeSearchErrors, codeSearchFor, unavailable } from '../config/codeSearch.js';
-import { allowedTools, layout, resolve, testDir } from '../config/settings.js';
+import { allowedTools, layout, resolve, testDir, testRunDefaults } from '../config/settings.js';
 import { renderSkill, skillNames } from '../config/skills.js';
 import {
   LANGUAGES, locateTestDir, provision, setupPlan, suggest, type Project, type SetupPlan, type Suggest,
@@ -34,7 +34,8 @@ const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help
 export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
 
   detect [dir] [--json]            the test suites detection finds; writes nothing
-  show [dir]                       the resolved settings (${CONFIG_FILE}, then detection, then defaults) as JSON
+  show [dir]                       the resolved settings (${CONFIG_FILE}, then detection, then defaults) as JSON, with
+                                   testRuns: the retry and worker limit the pipeline and run use
   layout [dir]                     test, source and backlog folders, test patterns and test command, as JSON
   node [dir]                       the Node the project's commands run with, and how
   suggest [dir] [--test-dir <folder>] [--language javascript|typescript] [--json]
@@ -281,7 +282,11 @@ export async function main(argv: string[], io: Io): Promise<number> {
       for (const w of warnings) io.err(`WARNING: ${w}`);
       if (errors.length || !config) { for (const e of errors) io.err(`ERROR: ${e}`); return 1; }
       if (cmd === 'layout') io.out(JSON.stringify(layout(config)));
-      else io.out(JSON.stringify({ ...config, testDirs: config.suites.map(testDir), allowedTools: allowedTools(config) }, null, 2));
+      else {
+        io.out(JSON.stringify({
+          ...config, testDirs: config.suites.map(testDir), testRuns: testRunDefaults(config.tests), allowedTools: allowedTools(config),
+        }, null, 2));
+      }
       return 0;
     }
   }

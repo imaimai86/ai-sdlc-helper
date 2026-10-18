@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { CONFIG_FILE, exists, readJson, type Json } from '../util.js';
 import {
@@ -30,6 +31,7 @@ export interface Config {
   backlogDir: string;
   suites: Suite[];
   integration: { cmd: string | null; ci: 'run' | 'skip' } | null;
+  tests: TestRuns;
   lint: string | null;
   worktree: { base: string; link: string[] };
   git: { branchPrefix: string; base: string | null; conflictSuffixStart: number };
@@ -37,6 +39,37 @@ export interface Config {
   ship: { envExample: boolean; maxFileBytes: number };
   ui: { timezone: string };
   node: NodeRun;
+}
+
+/**
+ * How the suites run, for the whole project rather than per suite: retrying and the worker limit are about the machine
+ * and the pipeline's load (several runs at once), not about one suite, and the limit only applies to jest and vitest
+ * anyway (mocha and node:test have none), so one block keeps the settings short.
+ */
+export interface TestRuns {
+  /**
+   * Run failed files once more before a failure counts (flaky tests are reported). null (not set): the pipeline gates
+   * retry, `ai-sdlc-helper run` does not, so an agent checking one file sees the first outcome at once. true or false
+   * applies to both; `run --retry` / `--no-retry` override it.
+   */
+  retry: boolean | null;
+  /** The jest/vitest worker limit: a number, "auto" (half the CPUs, at least 1), or null (the runner's own default). */
+  maxWorkers: number | 'auto' | null;
+}
+
+/** The worker count for a maxWorkers setting: undefined for no limit, "auto" as half the CPUs (at least 1). */
+export function workerLimit(setting: TestRuns['maxWorkers'] | undefined, cpus: number = os.availableParallelism()): number | undefined {
+  if (setting === null || setting === undefined) return undefined;
+  return setting === 'auto' ? Math.max(1, Math.floor(cpus / 2)) : setting;
+}
+
+/** What tests.retry and tests.maxWorkers come to: for the pipeline gates and for `ai-sdlc-helper run` without flags. */
+export function testRunDefaults(tests: TestRuns | undefined, cpus?: number): Record<'pipeline' | 'run', { retry: boolean; maxWorkers: number | null }> {
+  const maxWorkers = workerLimit(tests?.maxWorkers, cpus) ?? null;
+  return {
+    pipeline: { retry: tests?.retry ?? true, maxWorkers },
+    run: { retry: tests?.retry ?? false, maxWorkers },
+  };
 }
 
 export interface Resolved {
@@ -55,6 +88,7 @@ export const SCHEMA: Json = {
   backlogDir: 'string',
   suites: [SUITE_SCHEMA],
   integration: { cmd: 'string', ci: ['run', 'skip'] },
+  tests: { retry: 'boolean', maxWorkers: 'workers' },
   lint: 'string',
   worktree: { base: 'string', link: 'string[]' },
   git: { branchPrefix: 'string', base: 'string', conflictSuffixStart: 'integer' },
@@ -74,6 +108,10 @@ export function validate(value: unknown, schema: any, where: string, errors: str
     if (!schema.includes(value)) errors.push(`${at}: must be one of ${schema.join(', ')} (got ${JSON.stringify(value)})`);
   } else if (schema === 'string[]') {
     if (!Array.isArray(value) || value.some(v => typeof v !== 'string' || !v)) errors.push(`${at}: must be a list of non-empty strings`);
+  } else if (schema === 'workers') {
+    if (value !== null && value !== 'auto' && !(Number.isInteger(value) && (value as number) > 0)) {
+      errors.push(`${at}: must be a whole number above 0, "auto" or null (got ${JSON.stringify(value)})`);
+    }
   } else if (schema === 'integer') {
     if (!Number.isInteger(value) || (value as number) < 0) errors.push(`${at}: must be a whole number`);
   } else if (schema === 'string') {
@@ -181,6 +219,10 @@ export function resolve(root: string, { env = process.env }: { env?: NodeJS.Proc
     backlogDir: String(file.backlogDir || 'Docs/backlog').replace(/\/+$/, ''),
     suites: done,
     integration: file.integration ? { cmd: file.integration.cmd || null, ci: file.integration.ci || 'skip' } : null,
+    tests: {
+      retry: file.tests && typeof file.tests.retry === 'boolean' ? file.tests.retry : null,
+      maxWorkers: file.tests && file.tests.maxWorkers !== undefined ? file.tests.maxWorkers : null,
+    },
     lint: file.lint ? run(file.lint) : null,
     worktree: {
       base: (file.worktree && file.worktree.base) || '../{repo}-sdlc',

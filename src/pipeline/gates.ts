@@ -3,8 +3,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { runSuites, summary } from '../runners/run.js';
+import { testRunDefaults } from '../config/settings.js';
+import { spawnShell } from '../shell.js';
 import type { RunResult } from '../runners/types.js';
 import { at, tick, type Ctx } from './context.js';
 
@@ -22,14 +23,21 @@ export function resultText(results: RunResult[]): string {
   return `${lines.join('\n')}\n`;
 }
 
+/** How the gates run the suites: tests.retry (default true) and tests.maxWorkers (default: the runner's own). */
+const testRuns = (ctx: Ctx) => {
+  const d = testRunDefaults(ctx.config.tests).pipeline;
+  return { retry: d.retry, maxWorkers: d.maxWorkers ?? undefined };
+};
+
 /**
- * The unit tests of every suite, in the working tree. A failure is run once more (the failed files) before it counts;
+ * The unit tests of every suite, in the working tree, with tests.maxWorkers. Unless tests.retry is false, a failure is
+ * run once more (the failed files) before it counts;
  * tests that failed and then passed are reported as flaky (WARNING, and a line in <log>/flaky-tests.md). Writes
  * <log>/tests.log (what the agents read) and <log>/tests.json (the RunResult).
  */
 export function testsPass(ctx: Ctx): boolean {
   const logFile = at(ctx, `${ctx.log}/tests.log`);
-  const r = runSuites(ctx.config, { root: ctx.root, retry: true, env: ctx.env });
+  const r = runSuites(ctx.config, { root: ctx.root, ...testRuns(ctx), env: ctx.env });
   if ('error' in r) { fs.writeFileSync(logFile, `ERROR: ${r.error}\n`); return false; }
   fs.writeFileSync(logFile, resultText(r.results));
   fs.writeFileSync(at(ctx, `${ctx.log}/tests.json`), `${JSON.stringify(r.merged)}\n`);
@@ -41,13 +49,13 @@ export function testsPass(ctx: Ctx): boolean {
   return r.merged.ok;
 }
 
-/** Runs <cmd> with sh from the root, its output in <logFile>; resolves its exit code. */
+/** Runs <cmd> with bash from the root (a POSIX shell or cmd.exe on Windows), its output in <logFile>; resolves its exit code. */
 function shToFile(ctx: Ctx, cmd: string, logFile: string): Promise<number> {
   return new Promise(resolve => {
     const fd = fs.openSync(logFile, 'w');
     let done = false;
     const finish = (code: number) => { if (!done) { done = true; fs.closeSync(fd); resolve(code); } };
-    const child = spawn('bash', ['-c', cmd], { cwd: ctx.root, env: ctx.env, stdio: ['ignore', fd, fd], signal: ctx.signal });
+    const child = spawnShell(cmd, { bash: true, cwd: ctx.root, env: ctx.env, stdio: ['ignore', fd, fd], signal: ctx.signal });
     child.on('error', () => finish(127));
     child.on('close', code => finish(code === null ? 1 : code));
   });
@@ -83,7 +91,7 @@ export async function successCheck(ctx: Ctx): Promise<boolean> {
 /** Writes the RunResult of the tests in <root> (every suite) to <out>; nothing when no suite runs. */
 function writeResults(ctx: Ctx, root: string, out: string): void {
   try {
-    const r = runSuites(ctx.config, { root, env: ctx.env });
+    const r = runSuites(ctx.config, { root, maxWorkers: testRuns(ctx).maxWorkers, env: ctx.env });
     if (!('error' in r)) fs.writeFileSync(out, `${JSON.stringify(r.merged)}\n`);
   } catch { /* the checks that read <out> report it */ }
 }
