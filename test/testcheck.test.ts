@@ -364,6 +364,9 @@ describe('testcheck resumecheck', () => {
     if (!templates[key]) {
       const dir = tmpDir('sdlc-resume-tpl-');
       git(dir, 'init', '-q');
+      // No background maintenance or gc: they create and delete files in .git while the template is copied.
+      git(dir, 'config', 'maintenance.auto', 'false');
+      git(dir, 'config', 'gc.auto', '0');
       write(dir, 'README.md', 'x\n');
       commit(dir, 'init');
       write(dir, 'server/__tests__/a.test.js', "test('a works', () => {});\n");
