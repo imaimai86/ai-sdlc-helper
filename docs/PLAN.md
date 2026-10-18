@@ -30,6 +30,15 @@ The plugin is thin: every action calls the command. It checks at SessionStart th
    `volta.node`, `engines.node`) runs its test and lint commands through fnm, Volta, nvm or npx (`node` setting:
    `version` auto|current|X, `manager` auto|fnm|volta|nvm|npx|none). Test framework suggestions follow the lowest Node
    the project allows (below 18: no Vitest or node:test, Jest 29 and Mocha 10 pinned; below 14: none).
+7. **Dev-only Dependabot alerts (2026-10-18):** the alerts in vitest/tinypool are dismissed as dev-only; the fixed
+   versions need Node 20 or newer. Revisit when Node 18 support is dropped.
+8. **Test runs (2026-10-18):** one `tests` block for the whole project (`retry`, `maxWorkers`), not per suite: both are
+   about the machine and the pipeline's load, and the worker limit only applies to Jest and Vitest. Not set, the
+   pipeline gates retry a failure once and `ai-sdlc-helper run` does not (an agent checking one file wants the first
+   outcome at once).
+9. **Shells (2026-10-18):** every command line goes through `src/shell.ts`: `sh -c` (or `bash -c`) on macOS and Linux
+   as before; on Windows Git for Windows' `sh.exe`/`bash.exe` when found, else `cmd.exe`. Programs are found by
+   walking PATH (with PATHEXT on Windows) instead of `command -v`; `stop` uses `taskkill /T /F` on Windows.
 
 ## Phases
 
@@ -37,13 +46,17 @@ The plugin is thin: every action calls the command. It checks at SessionStart th
 2. **Runner adapters and one result format** (done there): every run produces `{ ok, exitCode, command, tests, suiteErrors }`.
 3. **No hard-coded paths** (done there): the pipeline, guard, prompts and slash commands read the settings.
 4. **This repo, in TypeScript.** One pull request per part, each leaving `main` working:
-   1. Scaffold, settings, detection, Node versions, test framework set-up, code search, skills; commands `detect`,
-      `show`, `layout`, `node`, `suggest`, `init-tests`, `code-search`, `skill`. CI on Node 18, 20, 22 and 24.
-   2. Runner adapters and the test checks (`testcheck`: diff, resume and retry checks, test locking).
-   3. Changes, permissions, the model registry and the backlog listing.
-   4. The pipeline engine (`sdlc.sh` in TypeScript): stages, prompts, agent runs, resume.
-   5. Worktrees and runs (`sdlc-mod.sh` in TypeScript), and the project registry: `add`, `list`, `remove`, `doctor`.
-   6. production-retail-and-wholesale switches to the package and drops its copies of the scripts.
+   1. Done (#1): scaffold, settings, detection, Node versions, test framework set-up, code search, skills; commands
+      `detect`, `show`, `layout`, `node`, `suggest`, `init-tests`, `code-search`, `skill`. CI on Node 18, 20, 22 and 24.
+   2. Done (#4): runner adapters and the test checks (`testcheck`: diff, resume and retry checks, test locking).
+   3. Done (#5): changes, permissions, the model registry and the backlog listing.
+   4. Done (#7): the pipeline engine (`sdlc.sh` and `sdlc-ship.sh` in TypeScript): stages, prompts, agent runs, resume.
+   5. Done (#2, #6): the project registry (`add`, `list`, `remove`, `doctor`; #2), and worktrees and run controls
+      (`sdlc-mod.sh` in TypeScript: `start`, `stop`, `restart`, `discard`, `status`, `watch`, `changes`; #6). The guide
+      to watching several worktrees came with #3.
+   6. Pending, after one real pipeline run with the package: production-retail-and-wholesale switches to the package
+      and drops its copies of the scripts.
+   Follow-ups (test run settings, Windows shells, test pool limit, README): `feat/followups`.
 5. **Plugin and marketplace.** Commands, pane and hooks move here; `/sdlc-init`; the rules skill;
    `.claude-plugin/marketplace.json`.
 6. **End-to-end checks.** Sample projects (Node + Jest, TypeScript + Vitest, Node + Mocha, a JUnit-only project) run
@@ -52,6 +65,17 @@ The plugin is thin: every action calls the command. It checks at SessionStart th
    versions it supports. Optionally a self-contained binary that needs no Node install, built with Node's
    single-executable apps or `bun build --compile`.
 
+## Still open
+
+- **Windows is untested.** The shell and lookup helpers are unit-tested with the platform injected, never on Windows.
+  Without a POSIX shell (no Git for Windows), command lines run in `cmd.exe`, where the runner adapters' single-quoted
+  arguments and the Node switch (`fnm exec -- sh -c ...`, nvm through bash) do not work; the run controls' detached
+  supervisor and `taskkill` have not been tried. CI runs on Linux only.
+- **Global install from GitHub:** `npm i -g github:imaimai86/ai-sdlc-helper` leaves a dangling global link (an npm
+  bug with git packages that have a `prepare` script, seen with npm 10.9); until the npm release, `npm pack` from
+  GitHub and install the tarball, or install a GitHub release's tarball (see README.md and docs/RELEASING.md).
+- **One real run** of the TypeScript pipeline on a real project before part 6.
+
 ## To build in (found by running the scripts on real projects)
 
 From a real agent run (`add-db-health-check`, 2026-10-16):
@@ -59,7 +83,7 @@ From a real agent run (`add-db-health-check`, 2026-10-16):
 - **One test file for agents:** give the stage agents a command that runs a single test file (the adapter's file
   filter), so they do not run the whole suite to check one change.
 - **Full suite flaky under load:** load-sensitive timeouts; run the suite with limited workers in the pipeline and
-  retry a failure once before calling it real.
+  retry a failure once before calling it real. (Done: the gates retry, and `tests.maxWorkers` limits the workers.)
 - **Discard must use the run record's worktree path,** not a path rebuilt from the current settings.
 
 From trying detection and `init-tests` on other projects:

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, exists, readSettings } from '../util.js';
+import { shellArgv } from '../shell.js';
 import { resolve, worktreeBase } from '../config/settings.js';
 import { findContaining, readRegistry, type ProjectOverrides } from '../registry/projects.js';
 import { worktreeChanges } from '../changes/index.js';
@@ -129,10 +130,15 @@ function withStartLock<T>(reg: string, fn: () => T): T {
   try { return fn(); } finally { fs.rmSync(lock, { force: true }); }
 }
 
-/** The pipeline command for a run: AI_SDLC_HELPER_PIPELINE_CMD (a command line, run by sh) or this tool's `pipeline`. */
-export function pipelineArgv(slug: string, from: string | undefined, env: NodeJS.ProcessEnv): string[] {
+/**
+ * The pipeline command for a run: AI_SDLC_HELPER_PIPELINE_CMD (a command line, run by sh with the arguments as "$@"; on
+ * Windows by the shell of shellArgv, the arguments appended: a slug and a stage name need no quoting) or this tool's
+ * `pipeline`.
+ */
+export function pipelineArgv(slug: string, from: string | undefined, env: NodeJS.ProcessEnv, platform: NodeJS.Platform = process.platform): string[] {
   const args = [slug, ...(from ? ['--from', from] : [])];
   const custom = env.AI_SDLC_HELPER_PIPELINE_CMD;
+  if (custom && platform === 'win32') { const a = shellArgv(`${custom} ${args.join(' ')}`, { env, platform }); return [a.file, ...a.args]; }
   if (custom) return ['sh', '-c', `${custom} "$@"`, 'sh', ...args];
   return [process.execPath, fileURLToPath(new URL('../bin.js', import.meta.url)), 'pipeline', ...args];
 }
@@ -240,7 +246,9 @@ export function start(ctx: RunContext, slug: string, opts: StartOptions = {}): O
     fs.rmSync(regFile(ctx, slug, 'interrupt'), { force: true });
     const marker = regFile(ctx, slug, 'setup-pending');
     if (created && ctx.setup.length) fs.writeFileSync(marker, `${wt}\n`);
-    const setup: SetupStep[] = exists(marker) ? ctx.setup.map(s => ({ ...s, dir: path.join(wt, s.dir) })) : [];
+    const setup: SetupStep[] = exists(marker)
+      ? ctx.setup.map(s => { const a = shellArgv(s.cmd, { env: ctx.env }); return { ...s, dir: path.join(wt, s.dir), argv: [a.file, ...a.args] }; })
+      : [];
 
     const record: RunRecord = {
       slug, worktree: wt, pid: 0, started: now(), state: 'running', exit_code: '', interrupted: false, finished: '', message: '',

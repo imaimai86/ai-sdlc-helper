@@ -97,9 +97,23 @@ export function processTree(pid: number): number[] {
   return tree;
 }
 
-/** Sends <signal> to <pid> and everything it started. */
-export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): void {
+/** How killTree reaches the system; injectable for tests. */
+export interface KillHost {
+  platform?: NodeJS.Platform;
+  run?: (cmd: string, args: string[]) => void;
+}
+
+/**
+ * Sends <signal> to <pid> and everything it started. On Windows, where there is no ps and no signals, it runs
+ * `taskkill /PID <pid> /T /F`, which ends the tree at once whatever the signal.
+ */
+export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM', host: KillHost = {}): void {
   if (!Number.isInteger(pid) || pid <= 1) return; // 0 and negative numbers would signal whole process groups
+  if ((host.platform || process.platform) === 'win32') {
+    const run = host.run || ((cmd, args) => { spawnSync(cmd, args, { windowsHide: true }); });
+    run('taskkill', ['/PID', String(pid), '/T', '/F']);
+    return;
+  }
   for (const p of processTree(pid)) { try { process.kill(p, signal); } catch { /* already gone */ } }
 }
 

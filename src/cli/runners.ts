@@ -2,7 +2,7 @@
 // and the mechanical checks of the Test repair stage.
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolve } from '../config/settings.js';
+import { resolve, testRunDefaults, workerLimit } from '../config/settings.js';
 import { parseJestLike } from '../runners/jest.js';
 import { parseJUnit } from '../runners/junit.js';
 import { mochaCrashFile, parseMocha } from '../runners/mocha.js';
@@ -18,12 +18,13 @@ import type { Io } from './main.js';
 
 export const RUNNER_COMMANDS = ['run', 'parse-report', 'testcheck'];
 export const RUNNER_VALUED = ['--out', '--suite', '--cwd', '--file', '--test', '--root', '--stderr', '--max-workers'];
-export const RUNNER_FLAGS = ['--retry', '--json'];
+export const RUNNER_FLAGS = ['--retry', '--no-retry', '--json'];
 
 export const RUNNER_USAGE = `  run [dir] [--file <f>]... [--test <full name>]... [--suite <name>] [--out <result.json>] [--json]
-      [--retry] [--max-workers <n>] [--cwd <checkout>]
+      [--retry | --no-retry] [--max-workers <n|auto>] [--cwd <checkout>]
                                    run the tests (all suites, or those holding the files) and report one RunResult;
-                                   --retry runs failed files once more, --max-workers limits jest/vitest workers;
+                                   --retry runs failed files once more, --max-workers limits jest/vitest workers
+                                   (defaults: tests.retry and tests.maxWorkers in the settings);
                                    exit 0 passed, 1 failed, 3 no report
   parse-report jest|vitest|mocha|node-test|junit <report> [--root <dir>] [--stderr <file>]
                                    a runner's own report as RunResult tests and suiteErrors (JSON)
@@ -60,15 +61,20 @@ function runCommand(io: Io, argv: string[], cwd: string, env: NodeJS.ProcessEnv)
   const dir = path.resolve(cwd, a.positional[1] || '.');
   if (!fs.existsSync(dir)) { io.err(`ERROR: ${dir} does not exist`); return 2; }
   const workersArg = a.one('--max-workers');
-  const maxWorkers = workersArg === undefined ? undefined : Number(workersArg);
-  if (maxWorkers !== undefined && !(Number.isInteger(maxWorkers) && maxWorkers > 0)) { io.err('ERROR: --max-workers needs a whole number above 0'); return 2; }
+  const workersOpt = workersArg === undefined || workersArg === 'auto' ? workersArg : Number(workersArg);
+  if (typeof workersOpt === 'number' && !(Number.isInteger(workersOpt) && workersOpt > 0)) { io.err('ERROR: --max-workers needs a whole number above 0 or "auto"'); return 2; }
+  if (a.flag('--retry') && a.flag('--no-retry')) { io.err('ERROR: use --retry or --no-retry, not both'); return 2; }
   const { config, errors, warnings } = resolve(dir, { env });
   for (const w of warnings) io.err(`WARNING: ${w}`);
   if (errors.length || !config) { for (const e of errors) io.err(`ERROR: ${e}`); return 2; }
   const root = path.resolve(cwd, a.one('--cwd') || dir);
   const files = a.many('--file').map(f => (path.isAbsolute(f) ? rel(root, f) : f.replace(/^\.\//, '')));
+  // The flags override the settings (testRunDefaults: without tests.retry, `run` does not retry).
+  const defaults = testRunDefaults(config.tests).run;
+  const retry = a.flag('--retry') || (!a.flag('--no-retry') && defaults.retry);
+  const maxWorkers = workersOpt === undefined ? (defaults.maxWorkers ?? undefined) : workerLimit(workersOpt as number | 'auto');
   const r = runSuites(config, {
-    root, files, names: a.many('--test'), suite: a.one('--suite'), retry: a.flag('--retry'), maxWorkers, env,
+    root, files, names: a.many('--test'), suite: a.one('--suite'), retry, maxWorkers, env,
   });
   if ('error' in r) { io.err(`ERROR: ${r.error}`); return 2; }
   const out = a.one('--out');

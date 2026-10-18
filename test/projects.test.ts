@@ -226,15 +226,16 @@ describe('doctor', () => {
     expect((await cli(['doctor', '--project', 'nope'], env)).status).toBe(2);
   });
 
-  test('git, the tool Node and the claude lookup go through the injected spawn and version', () => {
+  test('git, the tool Node and the claude lookup go through the injected spawn, lookup and version', () => {
     const dir = ready();
-    const spawn: Spawn = cmd => (cmd === 'git' ? { status: null, stdout: '', stderr: 'not found' } : { status: 0, stdout: '/bin/claude\n', stderr: '' });
-    const checks = doctor(dir, { env: { PATH: '/usr/bin:/bin' }, spawn, nodeVersion: '16.20.0' });
+    const spawn: Spawn = () => ({ status: null, stdout: '', stderr: 'not found' });
+    const which = (name: string) => (name === 'claude' ? '/bin/claude' : null);
+    const checks = doctor(dir, { env: { PATH: '/usr/bin:/bin' }, spawn, which, nodeVersion: '16.20.0' });
     const by = Object.fromEntries(checks.map(c => [c.name, c]));
     expect(by['tool Node']).toMatchObject({ ok: false, required: true, detail: 'the tool runs on Node 16.20.0 (needs 18 or newer)' });
     expect(by.git).toMatchObject({ ok: false, detail: 'git is not on PATH', fix: 'install git' });
     expect(by['git repository'].ok).toBe(false);
-    expect(by['claude CLI'].ok).toBe(true);
+    expect(by['claude CLI']).toMatchObject({ ok: true, detail: '/bin/claude' });
     expect(doctorOk(checks)).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
@@ -10,6 +11,9 @@ import { parseNodeTest } from '../src/runners/nodeTest.js';
 import { suiteFiles } from '../src/runners/files.js';
 import { runSuite, runSuites } from '../src/runners/run.js';
 import type { RunParts, RunSuite, Spawn } from '../src/runners/types.js';
+import { resolve } from '../src/config/settings.js';
+import { testsPass } from '../src/pipeline/gates.js';
+import type { Ctx } from '../src/pipeline/context.js';
 import { project } from './helpers.js';
 
 // Real output of each runner for test/math.test.js (pass, fail, nested, skipped) and test/broken.test.js (throws on
@@ -308,5 +312,76 @@ describe('command line', () => {
     expect(one.status).toBe(2);
     expect(one.stderr).toContain('"run --out x" arrived as one argument');
     expect((await cli(['run', '--outt', 'x'])).stderr).toContain('unknown option "--outt"');
+  });
+});
+
+/**
+ * A jest project whose `jest` is a stand-in: it records its arguments (args.txt) and writes a report with one test,
+ * which fails once when the file fail-once exists.
+ */
+function fakeJest(settings?: object): string {
+  const dir = project({
+    'package.json': { scripts: { test: 'jest' }, devDependencies: { jest: '^29' } },
+    ...(settings ? { 'sdlc.config.json': { agent: { codeSearch: 'none' }, ui: { timezone: 'UTC' }, ...settings } } : {}),
+    'test/a.test.js': '',
+  });
+  const bin = path.join(dir, 'node_modules/.bin');
+  fs.mkdirSync(bin, { recursive: true });
+  fs.writeFileSync(path.join(bin, 'jest'), `#!/bin/sh
+dir="$(cd "$(dirname "$0")/../.." && pwd)"
+echo "$*" >> "$dir/args.txt"
+for a in "$@"; do case "$a" in --outputFile=*) out="\${a#--outputFile=}" ;; esac; done
+st=passed; rc=0
+if [ -e "$dir/fail-once" ]; then rm "$dir/fail-once"; st=failed; rc=1; fi
+printf '{"testResults":[{"name":"%s/test/a.test.js","assertionResults":[{"title":"ok","status":"%s","failureMessages":["boom"]}]}]}' "$dir" "$st" > "$out"
+exit $rc
+`, { mode: 0o755 });
+  return fs.realpathSync(dir);
+}
+const workerArgs = (dir: string) => fs.readFileSync(path.join(dir, 'args.txt'), 'utf8').trim().split('\n').map(l => (l.match(/--maxWorkers=(\d+)/) || [])[1] || '-');
+const failOnce = (dir: string) => fs.writeFileSync(path.join(dir, 'fail-once'), '');
+
+describe('tests.retry and tests.maxWorkers', () => {
+  test('run: the settings are the defaults, --retry, --no-retry and --max-workers <n|auto> override them', async () => {
+    const plain = fakeJest();
+    failOnce(plain);
+    expect((await cli(['run', plain])).status).toBe(1);
+    failOnce(plain);
+    const retried = await cli(['run', plain, '--retry']);
+    expect(retried.status).toBe(0);
+    expect(retried.stdout).toContain('FLAKY test/a.test.js :: ok');
+    expect(workerArgs(plain)).toEqual(['-', '-', '-']);
+
+    const set = fakeJest({ tests: { retry: true, maxWorkers: 3 } });
+    failOnce(set);
+    expect((await cli(['run', set])).status).toBe(0);
+    failOnce(set);
+    expect((await cli(['run', set, '--no-retry', '--max-workers', '1'])).status).toBe(1);
+    await cli(['run', set, '--max-workers', 'auto']);
+    expect(workerArgs(set)).toEqual(['3', '3', '1', String(Math.max(1, Math.floor(os.availableParallelism() / 2)))]);
+
+    expect((await cli(['run', set, '--retry', '--no-retry'])).stderr).toContain('use --retry or --no-retry, not both');
+    expect((await cli(['run', set, '--max-workers', 'half'])).status).toBe(2);
+  });
+
+  test('the pipeline gate retries unless tests.retry is false, and passes tests.maxWorkers to every run', () => {
+    const gate = (dir: string) => {
+      const { config } = resolve(dir, { env: process.env });
+      const lines: string[] = [];
+      fs.mkdirSync(path.join(dir, 'logs'));
+      const ctx = { root: dir, log: 'logs', config, env: process.env, out: (l: string) => { lines.push(l); } } as unknown as Ctx;
+      return { ok: testsPass(ctx), lines };
+    };
+    const limited = fakeJest({ tests: { maxWorkers: 2 } });
+    failOnce(limited);
+    const r = gate(limited);
+    expect(r.ok).toBe(true);
+    expect(r.lines).toEqual(['WARNING: flaky test failed, then passed on retry; not counted as a failure: test/a.test.js :: ok']);
+    expect(workerArgs(limited)).toEqual(['2', '2']);
+
+    const noRetry = fakeJest({ tests: { retry: false } });
+    failOnce(noRetry);
+    expect(gate(noRetry).ok).toBe(false);
+    expect(workerArgs(noRetry)).toEqual(['-']);
   });
 });

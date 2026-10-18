@@ -4,26 +4,150 @@
 
 It works with the project's own language, test framework and database: it detects the test runner (Jest, Vitest, Mocha, node:test, or any runner that writes JUnit XML), reads `sdlc.config.json` for anything detection cannot know, and sets up a test framework for projects that have none.
 
-> Early work: the configuration and set-up commands are here; the pipeline itself is being ported. See [docs/PLAN.md](docs/PLAN.md).
+> Early work: the command and the pipeline engine are here; the Claude Code plugin (slash commands, control pane, guard hooks) and the npm release come next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Requirements
 - Node 18 or newer to run the tool. Your project may use any Node version: when it asks for another one (`.nvmrc`, `.node-version`, `.tool-versions`, `volta.node` or `engines.node`), its commands run through fnm, Volta, nvm or npx.
-- [Claude Code](https://claude.com/claude-code) for the pipeline.
+- git, and [Claude Code](https://claude.com/claude-code) (`claude` on PATH) for the pipeline.
 - A code indexer is recommended, not required: [graft](https://www.npmjs.com/package/@nanonets/graft), graphify or your own. Without one the agents search with Grep and Glob.
+- macOS or Linux. Windows is not tested yet: commands run through Git for Windows' `sh.exe` when it is installed, else `cmd.exe`, and `stop` uses `taskkill`.
+
+## Install
+Once it is published to npm:
+
+```bash
+npm i -g ai-sdlc-helper
+```
+
+Until then, pack it from GitHub and install the tarball (the `prepare` script builds `dist/` while packing), or install the tarball attached to a GitHub release:
+
+```bash
+npm pack github:imaimai86/ai-sdlc-helper && npm i -g ./ai-sdlc-helper-*.tgz
+npm i -g <tarball URL from a GitHub release>
+```
+
+`npm i -g github:imaimai86/ai-sdlc-helper` does not work: npm (seen with 10.9) leaves a dangling global link for any git package with a `prepare` script. Installing from git into a project (`npm i github:imaimai86/ai-sdlc-helper`) works. How releases are made: [docs/RELEASING.md](docs/RELEASING.md); what changed: [CHANGELOG.md](CHANGELOG.md).
+
+## Quick start
+```bash
+cd my-project
+ai-sdlc-helper add                  # register the project: shows the settings, offers sdlc.config.json and a backlog index
+ai-sdlc-helper doctor --run-tests   # check Node, git, claude, the settings, the code indexer, the backlog; run the tests once
+```
+
+Add an item to the backlog (`Docs/backlog/index.md` unless `backlogDir` says otherwise), one line per item:
+
+```markdown
+- [ ] `add-health-check` Add a /health endpoint that reports the database status
+```
+
+Then run its pipeline in its own worktree and branch, and follow it:
+
+```bash
+ai-sdlc-helper start add-health-check
+ai-sdlc-helper watch add-health-check --follow   # status.json, run state, changed files and the end of run.out
+```
+
+When a stage agent was refused an action (a command it may not run), the run pauses (exit 2) and `watch` shows it. Decide the refusals, then start the run again to resume:
+
+```bash
+ai-sdlc-helper permit add-health-check allow all   # or: always (also saves the rule), deny
+ai-sdlc-helper start add-health-check
+```
+
+When the Spec stage has questions, the run pauses too: answer them on the `**Answer:**` lines of `Docs/backlog/<slug>/questions.md` (in the run's worktree) and start it again. `stop`, `restart`, `discard` and `status` control the runs; `changes <slug>` counts the files a run changed.
+
+## Settings
+`sdlc.config.json` at the project root; every setting is optional. `ai-sdlc-helper show` prints what the settings resolve to, and invalid settings are reported with the setting at fault. The test runs, for example:
+
+```json
+{
+  "tests": { "retry": true, "maxWorkers": "auto" }
+}
+```
+
+- `tests.retry`: run failed test files once more before a failure counts; tests that pass the second time are reported as flaky. Not set: the pipeline retries and `ai-sdlc-helper run` does not. `run --retry` and `--no-retry` override it.
+- `tests.maxWorkers`: the Jest and Vitest worker limit: a number, `"auto"` (half the CPUs, at least 1) or `null` (the runner's own default; the default). It applies to every test run of the pipeline; `run --max-workers` overrides it. Mocha and node:test have no worker limit.
 
 ## Commands
+The output of `ai-sdlc-helper help`:
+
+<!-- help:start -->
 ```
-ai-sdlc-helper detect [dir]          the test suites found
-ai-sdlc-helper show [dir]            the resolved settings
-ai-sdlc-helper node [dir]            the Node the project's commands run with
-ai-sdlc-helper suggest [dir]         test frameworks for a project without tests
-ai-sdlc-helper init-tests [dir]      set one up: confirm the language, pick a framework, apply
-ai-sdlc-helper code-search [dir] --list | --use <name>
-ai-sdlc-helper skill <name> [dir]
+Usage: ai-sdlc-helper <command> [dir] [options]
+
+  detect [dir] [--json]            the test suites detection finds; writes nothing
+  show [dir]                       the resolved settings (sdlc.config.json, then detection, then defaults) as JSON, with
+                                   testRuns: the retry and worker limit the pipeline and run use
+  layout [dir]                     test, source and backlog folders, test patterns and test command, as JSON
+  node [dir]                       the Node the project's commands run with, and how
+  suggest [dir] [--test-dir <folder>] [--language javascript|typescript] [--json]
+                                   for a project without tests: the supported test frameworks, best first
+  init-tests [dir] [--test-dir <folder>] [--language javascript|typescript] [--runner <name>] [--yes] [--dry-run] [--no-install]
+                                   set up a test framework: confirm the language, pick a framework, apply the changes
+  code-search [dir] [--list | --use <name|auto|none>]
+                                   the code indexer the agents search with (graft, graphify, your own) or none
+  skill <name> [dir]               a skill's text for this project
+  add [dir] [--name <name>] [--worktree-base <dir>] [--max-parallel <n>] [--yes]
+                                   register a project (its git root): shows the settings, offers sdlc.config.json and a backlog index
+  list [--json]                    the registered projects
+  remove <name>                    forget a registered project (its files are kept)
+  doctor [dir | --project <name>] [--run-tests]
+                                   check what the pipeline needs: Node, git, claude, settings, code indexer, backlog
+  run [dir] [--file <f>]... [--test <full name>]... [--suite <name>] [--out <result.json>] [--json]
+      [--retry | --no-retry] [--max-workers <n|auto>] [--cwd <checkout>]
+                                   run the tests (all suites, or those holding the files) and report one RunResult;
+                                   --retry runs failed files once more, --max-workers limits jest/vitest workers
+                                   (defaults: tests.retry and tests.maxWorkers in the settings);
+                                   exit 0 passed, 1 failed, 3 no report
+  parse-report jest|vitest|mocha|node-test|junit <report> [--root <dir>] [--stderr <file>]
+                                   a runner's own report as RunResult tests and suiteErrors (JSON)
+  testcheck <check> ...            Test repair checks (exit 1 with REJECT lines): precheck <now.json> <test-issues.md> <max>,
+                                   diffcheck <red_sha> <test-issues.md>, namecheck <red.json> <now.json>,
+                                   redcheck <red.json> <repaired.json>, claimed <test-issues.md>,
+                                   unclaimed <now.json> <test-issues.md>, retry-plan [key]..., retry-args [key]...,
+                                   merge-retry <now.json> <test-issues.md> <flaky.md> <retry.json>...,
+                                   resumecheck <red_sha> <test-issues.md> <slug> [<lock_sha>]
+                                   (keys come from stdin when none are given; the test layout from SDLC_TEST_DIRS,
+                                   SDLC_KEY_DIR and SDLC_TEST_PATHSPECS, else from the settings)
+  changes snapshot|mirror|changed <baseline.json>
+  changes mark <stage-files.json> [stage]
+                                   the files a cycle changed (run in the project): record, mirror .env keys, list, per stage
+  permissions extract|args|mode|list|decide ...
+                                   the actions stage agents were refused, and the rules their runs get
+  permit <slug> allow|always|deny [n|all] [--project <name>]
+                                   decide the actions a pipeline's agent was refused (in its run's worktree when it
+                                   has one; always saves the rule in the main working tree); prints how many are still pending
+  model path | list [--json] | get <provider> | remove <provider> | test <provider>/<model>
+  model add <provider> --endpoint <url> --key-env <VAR> --models a,b [--effort]
+  model add-model|remove-model <provider> <model>
+                                   the user-level model registry (custom providers)
+  backlog [status[,status...]] [--status <list>] [--json]
+                                   the backlog items with their status
+  start <slug> [--from <stage>] [--project <name>]
+                                   start (or resume) the pipeline of a backlog item in its own worktree and branch;
+                                   exit 3 too many running, 4 already running, 5 already merged
+  stop <slug>                      interrupt a running pipeline and everything it started
+  restart <slug> [--from <stage>] [--yes]
+                                   stop, discard and start again from scratch (without --yes: show what goes, exit 6)
+  discard <slug> [--yes] [--stop]  delete its worktree, branch and run record; the branch tip is saved first
+  status [--json]                  one line per recorded run
+  watch <slug> [--follow [seconds]]
+                                   its status.json, run state, uncommitted files and the end of run.out;
+                                   --follow refreshes (every 3 s) until the run ends
+  changes <slug> [--json] | changes --all [<slug>...]
+                                   files a pipeline changed in its worktree: "<changed> <uncommitted>", or JSON
+  (stages: spec, plan, red-tests, implement, test-repair, review; the run commands take --project <name>)
+  pipeline [slug] [--from spec|plan|red-tests|implement|test-repair|review] [--cwd <checkout>]
+                                   run the SDLC pipeline for a backlog item (default: the first pending one) in the
+                                   checkout (default: the current folder); FROM=<stage> in the environment works too.
+                                   Exit 0 shipped, 1 failed, 2 paused (questions to answer, refused actions to decide)
+  help, --help, --version
 ```
+<!-- help:end -->
 
 ## Development
-```
+```bash
 npm ci
 npm run check
 npm run build
