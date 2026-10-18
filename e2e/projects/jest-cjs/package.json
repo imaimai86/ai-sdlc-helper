@@ -1,0 +1,12 @@
+{
+  "name": "e2e-jest-cjs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sample project for the end-to-end checks: Node with Jest, CommonJS.",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "29.7.0"
+  }
+}
