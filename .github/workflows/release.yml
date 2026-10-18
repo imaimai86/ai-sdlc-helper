@@ -1,0 +1,113 @@
+name: Release
+
+# Publishes ai-sdlc-helper to npm (with provenance) and creates the GitHub release when a version tag is pushed.
+# Run it by hand (Actions > Release > Run workflow) for a dry run: every check, then `npm publish --dry-run`,
+# no release. See docs/RELEASING.md.
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Dry run: check and pack, then npm publish --dry-run (nothing is published or released)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write # gh release create
+  id-token: write # npm provenance and trusted publishing
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # A tag push publishes. A manual run is a dry run, unless it was started on a tag with the box unticked.
+      DRY_RUN: ${{ github.event_name != 'push' && (inputs.dry-run || github.ref_type != 'tag') && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      # npm trusted publishing (OIDC, no token) needs npm 11.5.1 or newer; Node 22 ships npm 10.
+      - name: Update npm
+        run: npm install -g npm@^11.5.1 && npm --version
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Check the version
+        id: version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # A prerelease (1.2.0-beta.1) goes to the "next" dist-tag, so `npm i -g ai-sdlc-helper` keeps the stable one.
+          case "$version" in *-*) echo "dist-tag=next" >> "$GITHUB_OUTPUT" ;; *) echo "dist-tag=latest" >> "$GITHUB_OUTPUT" ;; esac
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version (expected v$version)."
+              exit 1
+            fi
+          else
+            echo "Not a tag run ($GITHUB_REF_NAME): package.json version is $version."
+          fi
+
+      - name: Check the CHANGELOG section
+        run: |
+          node scripts/release-notes.mjs "${{ steps.version.outputs.version }}" > "$RUNNER_TEMP/notes.md"
+          heading="$(grep -E '^## \[${{ steps.version.outputs.version }}\]' CHANGELOG.md)"
+          if printf '%s' "$heading" | grep -qi unreleased; then
+            if [ "$DRY_RUN" = true ]; then
+              echo "::warning::CHANGELOG.md heading still says Unreleased: $heading"
+            else
+              echo "::error::CHANGELOG.md heading still says Unreleased: $heading. Put the release date there before tagging."
+              exit 1
+            fi
+          fi
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: Smoke test the packed package
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          prefix="$RUNNER_TEMP/prefix"
+          npm install -g --prefix "$prefix" "$RUNNER_TEMP"/ai-sdlc-helper-*.tgz
+          bin="$prefix/bin/ai-sdlc-helper"
+          test "$("$bin" --version)" = "${{ steps.version.outputs.version }}"
+          "$bin" help > /dev/null
+          "$bin" detect .
+          "$bin" skill plan . > /dev/null
+
+      # --ignore-scripts: the steps above already ran the checks and the build (prepublishOnly would repeat them).
+      - name: Publish (dry run)
+        if: env.DRY_RUN == 'true'
+        run: npm publish --dry-run --ignore-scripts --provenance --access public --tag ${{ steps.version.outputs.dist-tag }}
+
+      - name: Publish to npm
+        if: env.DRY_RUN != 'true'
+        # With NPM_TOKEN unset, npm falls back to trusted publishing (OIDC) when it is configured on npmjs.com.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --ignore-scripts --provenance --access public --tag ${{ steps.version.outputs.dist-tag }}
+
+      - name: Create the GitHub release
+        if: env.DRY_RUN != 'true' && github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prerelease=""
+          case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+          # The packed tarball is attached too: `npm i -g <its download URL>` installs without the registry.
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md" --verify-tag $prerelease \
+            "$RUNNER_TEMP"/ai-sdlc-helper-*.tgz
