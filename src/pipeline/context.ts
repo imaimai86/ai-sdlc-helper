@@ -28,6 +28,14 @@ export function stamp(d = new Date()): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
+/** Waits <ms>; ends early when <signal> aborts. */
+export const wait = (ms: number, signal?: AbortSignal): Promise<void> => new Promise(resolve => {
+  if (signal?.aborted) { resolve(); return; }
+  const done = () => { clearTimeout(timer); signal?.removeEventListener('abort', done); resolve(); };
+  const timer = setTimeout(done, ms);
+  signal?.addEventListener('abort', done);
+});
+
 /** Lets the event loop run between long synchronous steps (git chains, test runs). */
 export const tick = (): Promise<void> => new Promise(resolve => { setImmediate(resolve); });
 
@@ -38,6 +46,10 @@ export interface Limits {
   maxTurns: number;
   /** Tests Test repair may claim (MAX_REPAIR_TESTS, default 3). */
   maxRepairTests: number;
+  /** Seconds between tries of an agent that hit the usage limit (SDLC_LIMIT_RETRY, default 300). */
+  limitRetry: number;
+  /** Seconds to wait for a usage limit to reset before the stage fails (SDLC_LIMIT_MAX_WAIT, default 21600, 6 h). */
+  limitMaxWait: number;
 }
 
 /** One pipeline run. Paths named `docs`, `log` and `backlog` are from the root, as the prompts and messages show them. */
@@ -70,6 +82,10 @@ export interface Ctx {
   allowed: string[];
   /** The command that runs one test file: `<cmd> <file>`. */
   testFileCmd: string;
+  /** The command that reads one web page with a GET: `<cmd> <https-url>`. */
+  fetchCmd: string;
+  /** Waits <ms> (ends early once the run is stopped); tests pass a stand-in. */
+  sleep: (ms: number, signal?: AbortSignal) => Promise<void>;
   permRepo: string;
   redSha: string;
   lockSha: string;

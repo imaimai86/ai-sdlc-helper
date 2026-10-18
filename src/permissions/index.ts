@@ -35,8 +35,53 @@ const saveState = (file: string, s: PermissionState): void => {
 const pathOf = (i: Record<string, any>): string =>
   (typeof i.file_path === 'string' ? i.file_path : typeof i.notebook_path === 'string' ? i.notebook_path : '');
 
-/** The denial as a short, narrow allow rule: the path for a file tool, the first command words for Bash, else the tool name. */
-export function ruleFor(tool: string, input: unknown, cwd: string): string {
+/** The parts of a shell command line, split on ; && || | & and newlines outside quotes. */
+export function commandParts(command: string): string[] {
+  const parts: string[] = [];
+  let cur = '';
+  let quote = '';
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i];
+    if (quote) {
+      if (c === quote) quote = '';
+      else if (c === '\\' && quote === '"') { cur += c + (command[i + 1] || ''); i++; continue; }
+    } else if (c === "'" || c === '"') {
+      quote = c;
+    } else if (c === '\\') {
+      cur += c + (command[i + 1] || ''); i++; continue;
+    } else if (';|&\n'.includes(c)) {
+      parts.push(cur); cur = '';
+      continue;
+    }
+    cur += c;
+  }
+  parts.push(cur);
+  return parts.map(x => x.trim()).filter(Boolean);
+}
+
+/** The rule for one command: its first one or two words. */
+function commandRule(command: string): string {
+  const words = command.split(/\s+/);
+  const head = words[0] && /^[\w./-]+$/.test(words[0]) ? [words[0]] : [];
+  if (head.length && words[1] && /^[a-z][\w-]*$/.test(words[1])) head.push(words[1]);
+  return head.length ? `Bash(${head.join(' ')}:*)` : 'Bash';
+}
+
+/** Whether an allow rule (`Bash(prefix:*)`, `Bash(prefix *)` or an exact `Bash(command)`) already covers one command. */
+export function covers(rule: string, command: string): boolean {
+  const m = /^Bash\((.*)\)$/.exec(rule);
+  if (!m) return false;
+  const prefix = m[1].replace(/(:\*| \*)$/, '');
+  if (prefix === m[1]) return command === prefix;
+  return command === prefix || command.startsWith(`${prefix} `);
+}
+
+/**
+ * The denial as a short, narrow allow rule: the path for a file tool, the first command words for Bash, else the tool name.
+ * For a command line with several commands, the first one that no rule in <allowed> covers: naming an allowed one (the
+ * `cd` of `cd x; sed ...`) would grant nothing, and the agent would be refused again.
+ */
+export function ruleFor(tool: string, input: unknown, cwd: string, allowed: string[] = []): string {
   const i: Record<string, any> = input && typeof input === 'object' ? input : {};
   if (PATH_TOOLS.includes(tool)) {
     const p = pathOf(i);
@@ -45,12 +90,24 @@ export function ruleFor(tool: string, input: unknown, cwd: string): string {
     return `${tool}(./${rel.replace(/^\.\//, '')})`;
   }
   if (tool === 'Bash' && typeof i.command === 'string') {
-    const words = i.command.trim().split(/\s+/);
-    const head = words[0] && /^[\w./-]+$/.test(words[0]) ? [words[0]] : [];
-    if (head.length && words[1] && /^[a-z][\w-]*$/.test(words[1])) head.push(words[1]);
-    return head.length ? `Bash(${head.join(' ')}:*)` : 'Bash';
+    const parts = commandParts(i.command.trim());
+    if (!parts.length) return 'Bash';
+    const open = parts.find(c => !allowed.some(r => covers(r, c)));
+    return commandRule(open || parts[0]);
   }
   return tool;
+}
+
+/**
+ * Whether a refused command line is already decided: every part is covered by a rule, and one of the developer's run
+ * rules covers a part (so the refusal the developer allowed is not asked again under the name of another, allowed part).
+ */
+function decidedLine(tool: string, input: unknown, allowed: string[], runRules: string[]): boolean {
+  const i: Record<string, any> = input && typeof input === 'object' ? input : {};
+  if (tool !== 'Bash' || typeof i.command !== 'string') return false;
+  const parts = commandParts(i.command.trim());
+  const all = [...allowed, ...runRules];
+  return parts.length > 0 && parts.every(c => all.some(r => covers(r, c))) && parts.some(c => runRules.some(r => covers(r, c)));
 }
 
 /** What the person is shown: the file, the command, or the tool's input in one line. */
@@ -70,8 +127,10 @@ export const isProtected = (tool: string, detail: string): boolean => PATH_TOOLS
  * (unless decided). A file that is not JSON (an older agent, a provider error) is copied to the log unchanged.
  * Returns the number of pending asks.
  */
-export function extract({ jsonFile, logFile, stateFile, stage, cwd, errFile }: {
+export function extract({ jsonFile, logFile, stateFile, stage, cwd, errFile, allowed = [] }: {
   jsonFile: string; logFile: string; stateFile: string; stage: string; cwd: string; errFile?: string;
+  /** The rules the agent ran with, so a refused command line is named by its part that was not allowed. */
+  allowed?: string[];
 }): number {
   const raw = fs.existsSync(jsonFile) ? fs.readFileSync(jsonFile, 'utf8') : '';
   const err = errFile && fs.existsSync(errFile) ? fs.readFileSync(errFile, 'utf8') : '';
@@ -89,10 +148,10 @@ export function extract({ jsonFile, logFile, stateFile, stage, cwd, errFile }: {
     const tool = String(d.tool_name || '');
     if (!tool) continue;
     const detail = detailFor(tool, d.tool_input, cwd);
-    const ask: Ask = { stage, tool, detail, rule: ruleFor(tool, d.tool_input, cwd), protected: isProtected(tool, detail) };
+    const ask: Ask = { stage, tool, detail, rule: ruleFor(tool, d.tool_input, cwd, [...allowed, ...state.allow]), protected: isProtected(tool, detail) };
     const same = (a: { tool: string; detail: string }) => a.tool === ask.tool && a.detail === ask.detail;
     if (state.denied.some(same) || state.pending.some(a => same(a) && a.stage === stage)) continue;
-    if (!ask.protected && state.allow.includes(ask.rule)) continue;
+    if (!ask.protected && (state.allow.includes(ask.rule) || decidedLine(tool, d.tool_input, allowed, state.allow))) continue;
     state.pending.push(ask);
   }
   saveState(stateFile, state);
@@ -154,9 +213,10 @@ export function repoRulesFile(root: string): string {
 /**
  * `ai-sdlc-helper permissions extract <agent.json> <log> <state.json> <stage> <cwd> [<stderr file>] | args <docs-dir>
  * <stage> [<repo-rules.json>] | mode <docs-dir> <stage> | list <state.json> | decide <state.json> <n|all>
- * allow|always|deny [<repo-rules.json>]`. Relative paths are taken from <cwd>. Throws on an error.
+ * allow|always|deny [<repo-rules.json>]`. Relative paths are taken from <cwd>. Throws on an error. For `extract`,
+ * SDLC_ALLOWED in <env> holds the agent's allow rules, one per line.
  */
-export function permissionsMain(argv: string[], out: (line: string) => void, cwd: string): void {
+export function permissionsMain(argv: string[], out: (line: string) => void, cwd: string, env: NodeJS.ProcessEnv = process.env): void {
   const [cmd, ...a] = argv;
   const at = (f: string | undefined) => (f === undefined ? f : path.resolve(cwd, f));
   switch (cmd) {
@@ -165,7 +225,8 @@ export function permissionsMain(argv: string[], out: (line: string) => void, cwd
       if (!jsonFile || !logFile || !stateFile || !stage || !agentCwd) {
         throw new Error('extract: <agent.json> <log> <state.json> <stage> <cwd> [<stderr file>]');
       }
-      out(String(extract({ jsonFile: at(jsonFile)!, logFile: at(logFile)!, stateFile: at(stateFile)!, stage, cwd: agentCwd, errFile: at(errFile) })));
+      const allowed = (env.SDLC_ALLOWED || '').split('\n').filter(Boolean);
+      out(String(extract({ jsonFile: at(jsonFile)!, logFile: at(logFile)!, stateFile: at(stateFile)!, stage, cwd: agentCwd, errFile: at(errFile), allowed })));
       break;
     }
     case 'args':

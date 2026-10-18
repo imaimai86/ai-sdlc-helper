@@ -39,9 +39,24 @@ export const spawnClaude: AgentSpawn = req => new Promise(resolve => {
   child.on('close', code => finish(code === null ? 1 : code));
 });
 
+/** What the Plan agent may use besides the stage tools: it reads a new library's published docs and types from the web. */
+export const PLAN_TOOLS = ['WebFetch', 'WebSearch', 'mcp__context7'];
+
+/** The reset text ("resets 1:10am (Asia/Dubai)") when the agent's call ended at the usage limit, else null. */
+export function usageLimit(jsonFile: string): string | null {
+  try {
+    const data = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+    if (!data || data.api_error !== 'usage_limit_reached') return null;
+    const m = /resets[^\n"\\]*/.exec(String(data.result || ''));
+    return m ? m[0].trim() : 'resets later';
+  } catch { return null; }
+}
+
 /** The {{PLACEHOLDER}} values of the run's prompts. */
 export function promptValues(ctx: Ctx): Record<string, string> {
+  const pkg = ctx.config.suites[0].dir;
   return {
+    PACKAGE_DIR: pkg, NODE_MODULES: pkg === '.' ? 'node_modules' : `${pkg}/node_modules`, FETCH_CMD: ctx.fetchCmd,
     DOCS: ctx.docs, LOG: ctx.log, TEST_DIR: testDir(ctx.config.suites[0]), TEST_CMD: ctx.layout.testCmd, TEST_FILE_CMD: ctx.testFileCmd,
     RED_SHA: ctx.redSha, SLUG: ctx.slug, TEST_FRAMEWORK: testFramework(ctx.config), TEST_FILES: ctx.layout.testFiles || `${testDir(ctx.config.suites[0])}/`,
   };
@@ -70,18 +85,41 @@ export async function runAgent(ctx: Ctx, name: string, stage: AgentStage): Promi
   ctx.status.agentStarted = stamp();
   ctx.status.write();
   // Rules the developer granted (this run's and the repository's) are added; a protected-path grant runs this stage without permission checks.
-  const allowed = [...ctx.allowed, ...rulesFor(at(ctx, ctx.docs), ctx.permRepo)];
+  const allowed = [...ctx.allowed, ...(stage === 'plan' ? PLAN_TOOLS : []), ...rulesFor(at(ctx, ctx.docs), ctx.permRepo)];
   const mode = modeFor(at(ctx, ctx.docs), stage);
   if (mode !== 'acceptEdits') ctx.out('   (permission checks are off for this stage: you allowed a protected path)');
   const base = at(ctx, `${ctx.log}/${name}`);
-  const rc = await ctx.spawnAgent({
-    args: ['-p', prompt, ...flags.args, '--permission-mode', mode, '--allowedTools', ...allowed, '--output-format', 'json', '--max-turns', String(ctx.limits.maxTurns)],
-    cwd: ctx.root, env: { ...ctx.env, ...flags.env }, stdout: `${base}.json`, stderr: `${base}.err`, signal: ctx.signal,
-  });
-  await tick();
+  // A usage limit is not the agent's failure: wait for the reset and run the same agent again.
+  const { limitRetry, limitMaxWait } = ctx.limits;
+  let waited = 0;
+  let rc: number;
+  for (;;) {
+    rc = await ctx.spawnAgent({
+      args: ['-p', prompt, ...flags.args, '--permission-mode', mode, '--allowedTools', ...allowed, '--output-format', 'json', '--max-turns', String(ctx.limits.maxTurns)],
+      cwd: ctx.root, env: { ...ctx.env, ...flags.env }, stdout: `${base}.json`, stderr: `${base}.err`, signal: ctx.signal,
+    });
+    await tick();
+    const limit = usageLimit(`${base}.json`);
+    if (!limit) break;
+    if (waited >= limitMaxWait) {
+      ctx.status.note = '';
+      stop(ctx, `   !! agent '${name}' hit the usage limit (${limit}) and it did not reset within ${limitMaxWait}s`, 1);
+    }
+    if (waited === 0) ctx.out(`   .. usage limit reached (${limit}): retrying '${name}' every ${limitRetry}s`);
+    ctx.status.note = `usage limit, ${limit}`;
+    ctx.status.write();
+    await ctx.sleep(limitRetry * 1000, ctx.signal);
+    stopIfAborted(ctx);
+    waited += limitRetry;
+  }
+  if (ctx.status.note) {
+    ctx.out(`   .. usage limit over, '${name}' ran`);
+    ctx.status.note = '';
+    ctx.status.write();
+  }
   let pending = 0;
   try {
-    pending = extract({ jsonFile: `${base}.json`, logFile: `${base}.log`, stateFile: at(ctx, `${ctx.log}/permissions.json`), stage, cwd: ctx.root, errFile: `${base}.err` });
+    pending = extract({ jsonFile: `${base}.json`, logFile: `${base}.log`, stateFile: at(ctx, `${ctx.log}/permissions.json`), stage, cwd: ctx.root, errFile: `${base}.err`, allowed });
   } catch { pending = 0; }
   if (pending > 0) {
     stop(ctx, `   !! agent '${name}' was refused ${pending} action(s): allow or deny them in the pane (or: ai-sdlc-helper permit ${ctx.slug} allow|always|deny all), then resume at ${stage}`, 2);

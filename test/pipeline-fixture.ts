@@ -9,7 +9,8 @@ import { tmp, write } from './helpers.js';
  * The stand-in: it tells the stage from the prompt's first words, records the prompt (prompts.txt), its arguments one per
  * line (args-<stage>.txt) and the environment (env-<stage>.txt), runs <fake>/<stage>.sh, and answers like
  * `claude --output-format json`. <fake>/<stage>.deny names a Bash rule: the agent is refused `git push origin main`
- * unless that rule is in its allowed tools. The auditor (no JSON output) prints <fake>/test-audit.out.
+ * unless that rule is in its allowed tools. <fake>/<stage>.limit (a number): that many calls end at the usage limit first.
+ * The auditor (no JSON output) prints <fake>/test-audit.out.
  */
 const FAKE_CLAUDE = `#!/bin/bash
 prompt=""; json=0; tools="|"
@@ -33,6 +34,15 @@ printf '== %s\\n%s\\n' "$stage" "$prompt" >> "$FAKE_DIR/prompts.txt"
 printf '%s\\n' "\${args[@]}" > "$FAKE_DIR/args-$stage.txt"
 echo "$stage" >> "$FAKE_DIR/calls.txt"
 env > "$FAKE_DIR/env-$stage.txt"
+# <fake>/<stage>.limit holds N: the first N calls of that stage end at the usage limit before doing anything.
+if [ "$json" -eq 1 ] && [ -f "$FAKE_DIR/$stage.limit" ]; then
+  n=$(cat "$FAKE_DIR/$stage.limited" 2>/dev/null || echo 0)
+  if [ "$n" -lt "$(cat "$FAKE_DIR/$stage.limit")" ]; then
+    echo $((n + 1)) > "$FAKE_DIR/$stage.limited"
+    echo '{"type":"result","subtype":"success","is_error":true,"api_error_status":429,"api_error":"usage_limit_reached","result":"You have hit your session limit · resets 1:10am (Asia/Dubai)","permission_denials":[]}'
+    exit 1
+  fi
+fi
 rc=0
 [ ! -f "$FAKE_DIR/$stage.sh" ] || bash "$FAKE_DIR/$stage.sh" || rc=$?
 if [ "$json" -eq 0 ]; then cat "$FAKE_DIR/$stage.out" 2>/dev/null || echo "VERDICT: VALID"; exit $rc; fi

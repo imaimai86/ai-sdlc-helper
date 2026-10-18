@@ -10,7 +10,7 @@ import { allowedTools, layout, resolve } from '../config/settings.js';
 import { snapshot } from '../changes/index.js';
 import { repoRulesFile } from '../permissions/index.js';
 import { Keys, testLayout } from '../testcheck/keys.js';
-import { Exit, FROM_STAGES, SetupError, stop, tick, type Ctx, type From } from './context.js';
+import { Exit, FROM_STAGES, SetupError, stop, tick, wait, type Ctx, type From } from './context.js';
 import { spawnClaude, type AgentSpawn } from './agent.js';
 import { Git } from './git.js';
 import { envModels, registryFile, stageModels } from './models.js';
@@ -37,6 +37,10 @@ export interface PipelineOptions {
   promptsDir?: string;
   /** The command the agents run one test file with (default: `ai-sdlc-helper run --file`). */
   testFileCmd?: string;
+  /** The command the agents read a web page with (default: `ai-sdlc-helper fetch`). */
+  fetchCmd?: string;
+  /** Waits for a usage limit to reset (default: a timer); tests pass a stand-in. */
+  sleep?: Ctx['sleep'];
   /** Aborts the running agent or command (the run then fails). */
   signal?: AbortSignal;
 }
@@ -49,12 +53,18 @@ const numberEnv = (env: NodeJS.ProcessEnv, name: string, fallback: number): numb
   return n;
 };
 
-/** `ai-sdlc-helper run --file`: the installed command when it is on PATH, else this package's own bin with this Node. */
-export function defaultTestFileCmd(env: NodeJS.ProcessEnv): string {
-  if (onPath('ai-sdlc-helper', { env })) return 'ai-sdlc-helper run --file';
+/** `ai-sdlc-helper <sub>`: the installed command when it is on PATH, else this package's own bin with this Node. */
+function ownCommand(env: NodeJS.ProcessEnv, sub: string): string {
+  if (onPath('ai-sdlc-helper', { env })) return `ai-sdlc-helper ${sub}`;
   const bin = fileURLToPath(new URL('../bin.js', import.meta.url));
-  return exists(bin) ? `${shellWord(process.execPath)} ${shellWord(bin)} run --file` : 'ai-sdlc-helper run --file';
+  return exists(bin) ? `${shellWord(process.execPath)} ${shellWord(bin)} ${sub}` : `ai-sdlc-helper ${sub}`;
 }
+
+/** `ai-sdlc-helper run --file`: the command that runs one test file. */
+export const defaultTestFileCmd = (env: NodeJS.ProcessEnv): string => ownCommand(env, 'run --file');
+
+/** `ai-sdlc-helper fetch`: the command that reads one web page with a GET. */
+export const defaultFetchCmd = (env: NodeJS.ProcessEnv): string => ownCommand(env, 'fetch');
 
 /** The first pending item ("- [ ] `slug`") of a backlog index, or ''. */
 export function firstPending(indexFile: string): string {
@@ -103,7 +113,7 @@ export async function runPipeline(opts: PipelineOptions): Promise<number> {
   } finally {
     if (ctx) {
       markStage(ctx, ctx.status.stage);
-      Object.assign(ctx.status, { state: finalState(code), agent: '', model: '', effort: '' });
+      Object.assign(ctx.status, { state: finalState(code), agent: '', model: '', effort: '', note: '' });
       ctx.status.write();
     }
   }
@@ -114,7 +124,8 @@ export async function runPipeline(opts: PipelineOptions): Promise<number> {
 async function setup(opts: PipelineOptions, from: From, env: NodeJS.ProcessEnv, out: (l: string) => void, err: (l: string) => void): Promise<Ctx> {
   const root = gitTop(path.resolve(opts.cwd));
   const say: Pick<Ctx, 'out'> = { out };
-  const limits = { maxAttempts: numberEnv(env, 'MAX_ATTEMPTS', 4), maxTurns: numberEnv(env, 'MAX_TURNS', 40), maxRepairTests: numberEnv(env, 'MAX_REPAIR_TESTS', 3) };
+  const limits = { maxAttempts: numberEnv(env, 'MAX_ATTEMPTS', 4), maxTurns: numberEnv(env, 'MAX_TURNS', 40), maxRepairTests: numberEnv(env, 'MAX_REPAIR_TESTS', 3),
+    limitRetry: numberEnv(env, 'SDLC_LIMIT_RETRY', 300), limitMaxWait: numberEnv(env, 'SDLC_LIMIT_MAX_WAIT', 21600) };
   // Project settings: sdlc.config.json completed by detection. The code search note is shown with the code search below.
   const { config, errors, warnings } = resolve(root, { env });
   const searchNote = warnings.filter(w => w.includes('code search uses Grep and Glob'));
@@ -137,6 +148,7 @@ async function setup(opts: PipelineOptions, from: From, env: NodeJS.ProcessEnv, 
   for (const w of searchNote) out(`NOTE: ${w}`);
   const search = { codeSearch: config.agent.codeSearch, indexer: config.agent.codeIndexer, warning: null };
   const testFileCmd = opts.testFileCmd || defaultTestFileCmd(env);
+  const fetchCmd = opts.fetchCmd || defaultFetchCmd(env);
 
   const status = new Status(path.join(root, log, 'status.json'), slug);
   const git = new Git(root, env);
@@ -145,7 +157,8 @@ async function setup(opts: PipelineOptions, from: From, env: NodeJS.ProcessEnv, 
     branch: `${config.git.branchPrefix}${slug}`, env, envModels: envModels(root, env), registryFile: registryFile(env), limits,
     git, keys: new Keys(testLayout(config), root), status, spawnAgent: opts.spawnAgent || spawnClaude, signal: opts.signal,
     promptsDir: opts.promptsDir || PROMPTS_DIR, guide: codeSearchGuide(search, root),
-    allowed: [...new Set([...allowedTools(config), `Bash(${testFileCmd}:*)`])], testFileCmd,
+    allowed: [...new Set([...allowedTools(config), `Bash(${testFileCmd}:*)`, `Bash(${fetchCmd}:*)`])], testFileCmd, fetchCmd,
+    sleep: opts.sleep || wait,
     // Repository-wide allow rules live in the main working tree, so every worktree run sees them.
     permRepo: repoRulesFile(root),
     redSha: '', lockSha: '', origRedSha: '', failLog: `${log}/tests.log`, out, err,

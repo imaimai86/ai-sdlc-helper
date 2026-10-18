@@ -153,7 +153,7 @@ describe('prompts', () => {
   });
 
   test('every shipped stage prompt renders without a placeholder left', () => {
-    const values = Object.fromEntries(['DOCS', 'LOG', 'TEST_DIR', 'TEST_CMD', 'TEST_FILE_CMD', 'RED_SHA', 'SLUG', 'TEST_FRAMEWORK', 'TEST_FILES'].map(k => [k, `<${k}>`]));
+    const values = Object.fromEntries(['DOCS', 'LOG', 'TEST_DIR', 'TEST_CMD', 'TEST_FILE_CMD', 'RED_SHA', 'SLUG', 'TEST_FRAMEWORK', 'TEST_FILES', 'FETCH_CMD', 'PACKAGE_DIR', 'NODE_MODULES'].map(k => [k, `<${k}>`]));
     for (const st of ['spec', 'plan', 'red-tests', 'implement', 'test-repair', 'test-audit', 'review']) {
       expect(renderPrompt(st, values, 'GUIDE')).not.toMatch(/\{\{[A-Z_]+\}\}/);
     }

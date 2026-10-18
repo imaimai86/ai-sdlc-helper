@@ -57,6 +57,12 @@ ai-sdlc-helper start add-health-check
 
 When the Spec stage has questions, the run pauses too: answer them on the `**Answer:**` lines of `Docs/backlog/<slug>/questions.md` (in the run's worktree) and start it again. `stop`, `restart`, `discard` and `status` control the runs; `changes <slug>` counts the files a run changed.
 
+## New packages and usage limits
+- **New packages.** Nothing is installed before Implement. The Plan agent reads a library's published README and type definitions (the web tools, context7 when you have it, or `ai-sdlc-helper fetch <https-url>`) and lists exact versions under `## Dependencies` in `plan-1.md`, one per line: `- runtime: name@1.2.3` or `- dev: name@1.2.3`. The pipeline installs them at the start of Implement, with your package manager, at those exact versions and without install scripts (`SDLC_DEP_SCRIPTS=run` allows them). A version that is a range or a tag stops the run. In a worktree, the `node_modules` link shared with your main working tree is first replaced by the worktree's own install, so the packages of your main tree never change.
+- **Web reads.** `ai-sdlc-helper fetch <https-url>` is one GET to the npm registry, unpkg, jsDelivr or GitHub (`SDLC_FETCH_HOSTS`, space-separated, replaces that list), at most 30 s and 5 MB. Stage agents may run it where they may not run `curl` or `wget`, because an allow rule for those cannot be limited to GET.
+- **Usage limit.** An agent whose call ends at the Claude usage limit is not a failed stage: the pipeline waits and runs the same agent again every `SDLC_LIMIT_RETRY` seconds (default 300), for up to `SDLC_LIMIT_MAX_WAIT` seconds (default 21600, six hours). While it waits, `status.json` says `running` with a `note` naming the reset time (`usage limit, resets 1:10am (Asia/Dubai)`). Past the limit, the stage fails with "usage limit".
+- **Read-only commands.** Stage agents may run read-only shell commands without a prompt (`cat`, `head`, `tail`, `wc`, `grep`, `rg`, `jq`, `git show`, `git ls-files` and similar). `find`, `sed`, `awk`, interpreters, `curl` and `wget` stay refused. When a refused command line holds several commands (`cd x; sed ...`), the rule offered is for the first one that is not allowed.
+
 ## Settings
 `sdlc.config.json` at the project root; every setting is optional. `ai-sdlc-helper show` prints what the settings resolve to, and invalid settings are reported with the setting at fault. The test runs, for example:
 
@@ -142,6 +148,9 @@ Usage: ai-sdlc-helper <command> [dir] [options]
                                    run the SDLC pipeline for a backlog item (default: the first pending one) in the
                                    checkout (default: the current folder); FROM=<stage> in the environment works too.
                                    Exit 0 shipped, 1 failed, 2 paused (questions to answer, refused actions to decide)
+  fetch <https-url>                one GET request, the body printed. Only the npm registry, unpkg, jsDelivr and GitHub
+                                   (SDLC_FETCH_HOSTS, space-separated, replaces the list); nothing is sent or written.
+                                   Stage agents may run this where they may not run curl. Exit 2: URL not allowed
   help, --help, --version
 ```
 <!-- help:end -->

@@ -17,6 +17,7 @@ import { PROJECT_COMMANDS, PROJECT_FLAGS, PROJECT_USAGE, PROJECT_VALUED, project
 import { RUNNER_COMMANDS, RUNNER_FLAGS, RUNNER_USAGE, RUNNER_VALUED, runners } from './runners.js';
 import { RUNS_COMMANDS, RUNS_FLAGS, RUNS_USAGE, RUNS_VALUED, runs } from './runs.js';
 import { PIPELINE_COMMANDS, PIPELINE_FLAGS, PIPELINE_USAGE, PIPELINE_VALUED, pipeline } from './pipeline.js';
+import { FETCH_COMMANDS, FETCH_USAGE, fetchCommand } from './fetch.js';
 
 export interface Io {
   out(text: string): void;
@@ -25,9 +26,11 @@ export interface Io {
   ask?: (question: string) => Promise<string>;
   env?: NodeJS.ProcessEnv;
   cwd?: string;
+  /** The HTTP client `fetch` uses (default: the global fetch); tests pass a stand-in. */
+  fetch?: typeof fetch;
 }
 
-const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS, ...TOOL_COMMANDS, ...RUNS_COMMANDS, ...PIPELINE_COMMANDS];
+const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS, ...TOOL_COMMANDS, ...RUNS_COMMANDS, ...PIPELINE_COMMANDS, ...FETCH_COMMANDS];
 const VALUED = ['--runner', '--language', '--test-dir', '--use', ...PROJECT_VALUED, ...RUNNER_VALUED, ...TOOL_VALUED, ...RUNS_VALUED, ...PIPELINE_VALUED];
 const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...PROJECT_FLAGS, ...RUNNER_FLAGS, ...TOOL_FLAGS, ...RUNS_FLAGS, ...PIPELINE_FLAGS];
 
@@ -48,6 +51,7 @@ export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
 ${PROJECT_USAGE}
 ${RUNNER_USAGE}${TOOL_USAGE}${RUNS_USAGE}
 ${PIPELINE_USAGE}
+${FETCH_USAGE}
   help, --help, --version`;
 
 const where = (d: string) => (d === '.' ? 'the project root' : d);
@@ -212,6 +216,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
   if (RUNNER_COMMANDS.includes(cmd)) return runners(argv, io);
   if (RUNS_COMMANDS.includes(cmd)) return runs(a, io);
   if (PIPELINE_COMMANDS.includes(cmd)) return pipeline(argv, VALUED, io);
+  if (FETCH_COMMANDS.includes(cmd)) return fetchCommand(argv, io);
   const languageArg = a.value('--language');
   if (languageArg !== undefined && !LANGUAGES.includes(languageArg as Language)) { io.err(`ERROR: --language must be javascript or typescript\n\n${USAGE}`); return 2; }
   for (const o of ['--runner', '--test-dir', '--use']) if (a.value(o) === '') { io.err(`ERROR: ${o} needs a value\n\n${USAGE}`); return 2; }

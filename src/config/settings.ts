@@ -296,6 +296,20 @@ export const agentRules = (config: Config): string[] => [...new Set([
   ...config.agent.allowCommands.map(c => `Bash(${c}:*)`),
 ])];
 
+/**
+ * Read-only commands every stage agent may run without a prompt, so lookups do not pause the run. Left out on purpose: find
+ * (-exec and -delete), sed and awk, interpreters, and curl and wget (a rule for them cannot be limited to GET; agents use
+ * `ai-sdlc-helper fetch` instead).
+ */
+export const READ_ONLY_RULES = [
+  'Bash(cd:*)', 'Bash(pwd)', 'Bash(cat:*)', 'Bash(head:*)', 'Bash(tail:*)', 'Bash(wc:*)', 'Bash(grep:*)', 'Bash(rg:*)',
+  'Bash(stat:*)', 'Bash(file:*)', 'Bash(diff:*)', 'Bash(sort:*)', 'Bash(uniq:*)', 'Bash(cut:*)', 'Bash(tr:*)', 'Bash(jq:*)',
+  'Bash(which:*)', 'Bash(command -v:*)', 'Bash(readlink:*)', 'Bash(realpath:*)', 'Bash(dirname:*)', 'Bash(basename:*)',
+  'Bash(git show:*)', 'Bash(git ls-files:*)', 'Bash(git rev-parse:*)', 'Bash(git blame:*)', 'Bash(git worktree list:*)',
+  'Bash(git grep:*)', 'Bash(git cat-file:*)', 'Bash(git branch --show-current)', 'Bash(tree:*)', 'Bash(du:*)', 'Bash(date:*)',
+  'Bash(echo:*)', 'Bash(npm ls:*)', 'Bash(npm view:*)', 'Bash(npm --version)',
+];
+
 /** The tools every stage agent may use: file tools, code search, the project commands, read-only git. */
 export function allowedTools(config: Config): string[] {
   const ix = config.agent.codeIndexer || { tools: [], commands: [] };
@@ -306,6 +320,7 @@ export function allowedTools(config: Config): string[] {
     ...agentRules(config),
     ...ix.commands.map(bash),
     bash('ls'), bash('git status'), bash('git diff'), bash('git log'),
+    ...READ_ONLY_RULES,
   ])];
 }
 

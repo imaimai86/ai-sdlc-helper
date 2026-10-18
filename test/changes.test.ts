@@ -203,6 +203,37 @@ describe('changes mark (files per stage)', () => {
     expect(stages(dir)).toEqual({ Implement: ['a.js'] });
   });
 
+  test('a test file an earlier stage wrote and a later stage changed and committed counts for both', async () => {
+    const dir = repo();
+    await mark(dir);
+    write(dir, 'server/__tests__/a.test.js', 'red\n');
+    commit(dir, 'test: add failing tests');
+    await mark(dir, 'Red tests');
+    write(dir, 'src.js');
+    await mark(dir, 'Implement');
+    write(dir, 'Docs/backlog/s/test-repair-1.md');
+    write(dir, 'server/__tests__/a.test.js', 'repaired\n');
+    sh(dir, 'git', ['add', 'server/__tests__/a.test.js', 'Docs/backlog/s/test-repair-1.md']);
+    sh(dir, 'git', ['commit', '-q', '-m', 'test: repair invalid tests']);
+    await mark(dir, 'Test repair');
+    expect(stages(dir)).toEqual({
+      'Red tests': ['server/__tests__/a.test.js'], Implement: ['src.js'],
+      'Test repair': ['Docs/backlog/s/test-repair-1.md', 'server/__tests__/a.test.js'],
+    });
+  });
+
+  test('a file committed during a stage as it already was at the last mark (clean or dirty) is not credited again', async () => {
+    const dir = repo();
+    write(dir, 'dirty-before.txt', 'v1\n');
+    await mark(dir);
+    write(dir, 'one.js');
+    await mark(dir, 'Implement');
+    commit(dir, 'wip: collect');
+    write(dir, 'two.js');
+    await mark(dir, 'Review');
+    expect(stages(dir)).toEqual({ Implement: ['one.js'], Review: ['two.js'] });
+  });
+
   test('an already dirty, unchanged file and sensitive or generated files are never credited; a second pass adds to a stage; a mark without a stage only resets', async () => {
     let dir = repo();
     write(dir, 'dirty-before.txt');

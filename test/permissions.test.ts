@@ -3,7 +3,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { main } from '../src/cli/main.js';
-import { decide, extract, loadState, modeFor, ruleFor, rulesFor } from '../src/permissions/index.js';
+import { commandParts, decide, extract, loadState, modeFor, permissionsMain, ruleFor, rulesFor } from '../src/permissions/index.js';
 import { tmp } from './helpers.js';
 
 const CWD = '/work/repo';
@@ -131,6 +131,57 @@ describe('ruleFor', () => {
       ['WebFetch', { url: 'https://x.example' }, 'WebFetch'],
     ];
     for (const [tool, input, rule] of cases) expect([tool, input, ruleFor(tool, input, CWD)]).toEqual([tool, input, rule]);
+  });
+
+  test('a command line with several commands is named by its first command that no allow rule covers', () => {
+    const allowed = ['Bash(cd:*)', 'Bash(echo:*)', 'Bash(cat:*)', 'Bash(ls:*)', 'Bash(git log *)', 'Bash(pwd)'];
+    const cases: [string, string][] = [
+      // separators inside quotes do not split the command
+      [`cd ${CWD}; sed -n '/^- New \`a;b\`/,/x|y/p' brief.md; echo ---`, 'Bash(sed:*)'],
+      ['cat a.js; grep -n "x\\|y" b.js; ls s | grep -i p', 'Bash(grep:*)'],
+      ['cd server && npm install pino', 'Bash(npm install:*)'],
+      ['git log --oneline -3 || git status', 'Bash(git status:*)'],
+      ['pwd; pwd --x', 'Bash(pwd:*)'],
+      // every part allowed (refused for another reason): the first part, as before
+      ['cd server; cat a.js', 'Bash(cd server:*)'],
+      ['cd server', 'Bash(cd server:*)'],
+    ];
+    for (const [command, rule] of cases) expect([command, ruleFor('Bash', { command }, CWD, allowed)]).toEqual([command, rule]);
+  });
+});
+
+describe('commandParts', () => {
+  test('splits on ; && || | & and newlines outside quotes, and keeps quoted and escaped separators', () => {
+    expect(commandParts('cd x && ls | wc -l; echo a & echo b\npwd')).toEqual(['cd x', 'ls', 'wc -l', 'echo a', 'echo b', 'pwd']);
+    expect(commandParts(`grep 'a;b' f; echo "c && d" ; echo e\\;f`)).toEqual([`grep 'a;b' f`, 'echo "c && d"', 'echo e\\;f']);
+    expect(commandParts('echo "say \\"hi\\"; there"; ls')).toEqual(['echo "say \\"hi\\"; there"', 'ls']);
+    expect(commandParts('   ')).toEqual([]);
+  });
+});
+
+describe('a refused command line', () => {
+  const line = `cd ${CWD}; sed -n 1,5p a.md; echo ---`;
+
+  test('extract names it by the part the agent was not allowed (the allowed rules come from SDLC_ALLOWED), and once that rule is allowed it is not asked again', () => {
+    fs.writeFileSync(files.json, agentJson([denial('Bash', { command: line })]));
+    const out: string[] = [];
+    permissionsMain(['extract', files.json, files.log, files.state, 'spec', CWD], l => out.push(l), CWD, { SDLC_ALLOWED: 'Bash(cd:*)\nBash(echo:*)\n' });
+    expect(out).toEqual(['1']);
+    expect(loadState(files.state).pending[0]).toMatchObject({ detail: line, rule: 'Bash(sed:*)' });
+
+    // the developer allows the rule for the run; the same refusal is decided, under the name of its other parts too
+    decide(files.state, '0', 'allow', files.repo);
+    fs.writeFileSync(files.json, agentJson([denial('Bash', { command: line })]));
+    expect(extract({ jsonFile: files.json, logFile: files.log, stateFile: files.state, stage: 'spec', cwd: CWD, allowed: ['Bash(cd:*)', 'Bash(echo:*)'] })).toBe(0);
+  });
+
+  test('a command line with a part nobody allowed is still asked about, even when another part was allowed for the run', () => {
+    fs.writeFileSync(files.json, agentJson([denial('Bash', { command: 'cd x; sed 1p a; awk 1 b' })]));
+    expect(extract({ jsonFile: files.json, logFile: files.log, stateFile: files.state, stage: 'spec', cwd: CWD, allowed: ['Bash(cd:*)'] })).toBe(1);
+    decide(files.state, '0', 'allow', files.repo); // allows Bash(sed:*) only
+    fs.writeFileSync(files.json, agentJson([denial('Bash', { command: 'cd x; sed 1p a; awk 1 b' })]));
+    expect(extract({ jsonFile: files.json, logFile: files.log, stateFile: files.state, stage: 'spec', cwd: CWD, allowed: ['Bash(cd:*)'] })).toBe(1);
+    expect(loadState(files.state).pending[0].rule).toBe('Bash(awk:*)');
   });
 });
 

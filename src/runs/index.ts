@@ -298,7 +298,8 @@ async function stopRun(ctx: RunContext, slug: string, rec: Partial<RunRecord>): 
 export async function stop(ctx: RunContext, slug: string): Promise<Outcome> {
   const rec = readRecord(ctx.reg, slug);
   if (!rec) return fail(1, `No run recorded for ${slug}`);
-  if (!alive(rec.pid)) return ok(`${slug} is not running`);
+  // Only a run whose record says running is signalled: a finished run's pid may since belong to another process.
+  if (!isRunning(rec)) return ok(`${slug} is not running`);
   if (!await stopRun(ctx, slug, rec)) return fail(1, `could not stop ${slug} (pid ${rec.pid})`);
   return ok(`stopped ${slug}`);
 }

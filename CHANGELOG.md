@@ -10,6 +10,20 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
 
 ## [Unreleased]
 
+### Added
+
+- **New packages are installed in Implement.** Plan lists exact versions under `## Dependencies`, reads a library's published docs and types from the web (WebFetch, WebSearch, context7, or the new `fetch` command), and the pipeline installs them at the start of Implement, without install scripts unless `SDLC_DEP_SCRIPTS=run`. Spec, Plan and the skills no longer ask for packages to be installed first.
+- **`fetch <https-url>`**: one GET from the npm registry, unpkg, jsDelivr or GitHub (`SDLC_FETCH_HOSTS` replaces the list), which stage agents may run where they may not run `curl`.
+- **A usage limit is waited out.** The same agent runs again every `SDLC_LIMIT_RETRY` seconds (default 300) for up to `SDLC_LIMIT_MAX_WAIT` seconds (default 21600); `status.json` has a new `note` field with the reset time while it waits.
+- **Read-only shell commands** (`cat`, `head`, `tail`, `wc`, `grep`, `rg`, `jq`, `git show` and similar) run without a prompt in every stage.
+
+### Fixed
+
+- A refused command line with several commands (`cd x; sed ...`) offers the rule for the first command that is not allowed, and is not asked again once that rule is allowed.
+- A test file an earlier stage wrote and a later stage changed and committed (Test repair) is credited to both stages; a commit that only collects earlier work, unchanged since the last mark, is credited to none.
+- `stop` signals only a run whose record says it is running, so a finished run's pid, which another process may now hold, is left alone.
+- A Test repair claim may cite the plan (`plan-1.md`) as well as the spec, a decision or an isolation defect.
+
 ## [0.1.0] - Unreleased
 
 The first release: the SDLC pipeline from `production-retail-and-wholesale`, rewritten in TypeScript as a global

@@ -87,7 +87,7 @@ export async function projectTool(argv: string[], valued: string[], io: Io): Pro
         if (c.flag('--all') || (c.positional.length === 2 && !CHANGES_SUBS.includes(c.positional[1]))) return runsChanges(c, io);
         return changes(io, cwd, rest);
       }
-      case 'permissions': permissionsMain(rest, line => io.out(line), cwd); return 0;
+      case 'permissions': permissionsMain(rest, line => io.out(line), cwd, io.env || process.env); return 0;
       case 'permit': return permit(io, cwd, rest, env);
       case 'model': return await modelsMain(rest, { env, out: line => io.out(line), err: line => io.err(line) });
       case 'backlog': {

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { afterAll, afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { main } from '../src/cli/main.js';
 import { alive, killTree } from '../src/runs/records.js';
@@ -299,6 +299,30 @@ describe('stop and status', () => {
     expect((await cli(['stop', 'alpha'])).stdout).toBe('alpha is not running\n');
     expect((await cli(['stop', 'ghost'])).status).toBe(1);
     expect((await cli(['status', 'extra'])).status).toBe(2);
+  });
+
+  test('stop signals only a run whose record says running: a finished run\'s pid may belong to another process now', async () => {
+    const other = spawn('sleep', ['300'], { stdio: 'ignore' });
+    try {
+      const pid = other.pid!;
+      fs.mkdirSync(reg(), { recursive: true });
+      for (const rec of [
+        { slug: 'alpha', worktree: path.join(wts, 'alpha'), pid, state: 'exited', exit_code: '0' },
+        { slug: 'alpha', worktree: path.join(wts, 'alpha'), pid: 0, state: 'exited', exit_code: '5' },
+      ]) {
+        fs.writeFileSync(path.join(reg(), 'alpha.json'), JSON.stringify(rec));
+        const r = await cli(['stop', 'alpha']);
+        expect([r.status, r.stdout]).toEqual([0, 'alpha is not running\n']);
+        expect(alive(pid)).toBe(true);
+      }
+    } finally {
+      other.kill('SIGKILL');
+    }
+  });
+
+  test('a pid that is zero, negative or not a number is never alive (kill(0) would signal the caller\'s own process group)', () => {
+    for (const pid of [0, -1, -4242, '0', 'abc', '', null, undefined, 1.5, NaN]) expect([pid, alive(pid)]).toEqual([pid, false]);
+    expect(alive(process.pid)).toBe(true);
   });
 
   test('a supervisor that died without finishing shows as stopped', async () => {
