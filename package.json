@@ -54,6 +54,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "check": "npm run lint && npm run typecheck && npm test",
+    "e2e": "npm run build && node e2e/run.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepare": "npm run build",
     "prepublishOnly": "npm run clean && npm run build && npm run check"

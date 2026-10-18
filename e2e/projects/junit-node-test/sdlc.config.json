@@ -1,0 +1,12 @@
+{
+  "suites": [
+    {
+      "name": "app",
+      "dir": ".",
+      "runner": "generic-junit",
+      "testCmd": "node --test --test-reporter=junit --test-reporter-destination=junit.xml",
+      "report": "junit.xml",
+      "testGlobs": ["test/**/*.test.mjs"]
+    }
+  ]
+}

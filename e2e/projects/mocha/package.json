@@ -1,0 +1,13 @@
+{
+  "name": "e2e-mocha",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sample project for the end-to-end checks: Node with Mocha, ES modules.",
+  "type": "module",
+  "scripts": {
+    "test": "mocha"
+  },
+  "devDependencies": {
+    "mocha": "10.8.2"
+  }
+}
