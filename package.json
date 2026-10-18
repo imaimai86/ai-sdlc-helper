@@ -2,6 +2,17 @@
   "name": "ai-sdlc-helper",
   "version": "0.1.0",
   "description": "Run an AI-driven SDLC pipeline (Spec, Plan, Red tests, Implement, Review, Ship) on any project, with Claude Code agents.",
+  "keywords": [
+    "sdlc",
+    "claude",
+    "claude-code",
+    "ai",
+    "agents",
+    "tdd",
+    "pipeline",
+    "cli",
+    "code-review"
+  ],
   "license": "MIT",
   "author": "Anas",
   "type": "module",
@@ -10,9 +21,17 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
-    "assets"
+    "assets",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=18.18"
@@ -21,12 +40,23 @@
     "type": "git",
     "url": "git+https://github.com/imaimai86/ai-sdlc-helper.git"
   },
+  "homepage": "https://github.com/imaimai86/ai-sdlc-helper#readme",
+  "bugs": {
+    "url": "https://github.com/imaimai86/ai-sdlc-helper/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit && tsc -p test",
     "lint": "eslint .",
     "test": "vitest run",
-    "check": "npm run lint && npm run typecheck && npm test"
+    "check": "npm run lint && npm run typecheck && npm test",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run clean && npm run build && npm run check"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
