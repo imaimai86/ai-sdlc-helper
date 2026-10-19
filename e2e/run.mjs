@@ -255,12 +255,8 @@ async function runCase(c, tmp, env) {
   } else { // controls: start in a worktree, follow it, read the status
     const s = save('start', cli(['start', p.slug], { cwd: repo, env: caseEnv }));
     check(s.status === 0, `start exited ${s.status}:\n${tail(s.stdout + s.stderr)}`);
-    // KNOWN BUG (src/runs/index.ts watchFrame): watch runs `git status --short` in the run's worktree every refresh, and
-    // git status takes the worktree's index.lock to refresh the index; a pipeline git command at that moment (Ship's
-    // commit) fails with "index.lock: File exists". GIT_OPTIONAL_LOCKS=0 (what --no-optional-locks sets) keeps watch
-    // from taking the lock until watch does that itself; drop it then.
-    const w = save('watch-follow', await cliAsync(['watch', p.slug, '--follow', '1'], { cwd: repo, env: { ...caseEnv, GIT_OPTIONAL_LOCKS: '0' }, timeout: 8 * MINUTE }));
-    steps.push('watch with GIT_OPTIONAL_LOCKS=0 (watch/index.lock bug)');
+    // watch refreshes while the pipeline commits: its status reads must not take index.lock (git --no-optional-locks).
+    const w = save('watch-follow', await cliAsync(['watch', p.slug, '--follow', '1'], { cwd: repo, env: caseEnv, timeout: 8 * MINUTE }));
     steps.push(`start + watch --follow ${seconds(w.ms)}`);
     check(w.status === 0, `watch --follow exited ${w.status}:\n${tail(w.stdout + w.stderr)}`);
     const frames = w.stdout.split('\x1b[H\x1b[2J').filter(Boolean);
