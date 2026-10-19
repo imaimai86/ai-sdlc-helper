@@ -18,19 +18,22 @@ export interface CodeIndexer {
   guide?: string;
   guideFile?: string;
   setup?: string;
+  /** How to build the index once the command is installed. */
+  build?: string;
 }
 
 export const CODE_INDEXERS: Record<string, Omit<CodeIndexer, 'name'>> = {
   graft: {
     command: 'graft', index: 'graft', tools: ['mcp__graft'], commands: ['graft'],
-    setup: 'npm install -g @nanonets/graft, then graft build',
+    setup: 'npm install -g @nanonets/graft, then graft build', build: 'graft build',
   },
   graphify: {
     command: 'graphify', index: 'graphify-out/graph.json', tools: [], commands: ['graphify'],
     setup: 'uv tool install graphifyy (or pipx install graphifyy), then build the graph with /graphify . in Claude Code',
+    build: 'build the graph with /graphify . in Claude Code',
   },
 };
-export const INDEXER_SCHEMA = { command: 'string', index: 'string', tools: 'string[]', commands: 'string[]', guide: 'string', guideFile: 'string', setup: 'string' };
+export const INDEXER_SCHEMA = { command: 'string', index: 'string', tools: 'string[]', commands: 'string[]', guide: 'string', guideFile: 'string', setup: 'string', build: 'string' };
 export const SEARCH_SETTINGS = ['auto', 'none'];
 export const PARTS_DIR = path.join(ASSETS_DIR, 'prompts', 'parts');
 
@@ -101,7 +104,9 @@ export function codeSearchFor(root: string, file: Json = {}, env: NodeJS.Process
     const ix = all[name];
     if (ix && !unavailable(ix, root, env)) return { codeSearch: name, indexer: ix, warning: null };
   }
-  const offers = Object.values(all).filter(ix => ix.setup).map(ix => `${ix.name} (${ix.setup})`);
+  // An indexer that is installed only needs its index built; the others need installing too.
+  const offers = Object.values(all).map(ix => (ix.build && ix.command && onPath(ix.command, env)
+    ? `${ix.name} (installed; build its index: ${ix.build})` : ix.setup ? `${ix.name} (${ix.setup})` : '')).filter(Boolean);
   return none(`no code indexer is available; code search uses Grep and Glob.${offers.length ? ` A code indexer is recommended: ${offers.join(', or ')}` : ''}`);
 }
 

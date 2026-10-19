@@ -22,6 +22,14 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
 
 ### Fixed
 
+- The run logs (`<backlog>/<slug>/logs/`) are never committed and never show in `git status`: the folder ignores
+  itself. A project without its own ignore entry had them in the Red tests and feature commits.
+- A refused `npm run <script>` (and pnpm, yarn, bun `run`/`exec`) asks for a rule naming that script, not one that
+  allows every script.
+- `status` and `changes --all` list only this project's runs; the run registry is shared by every checkout of the
+  repository.
+- When graft (or graphify) is installed but the project has no index yet, the warning says to build the index, not
+  to install the tool.
 - The run controls work on the checkout they are run in. A project that is one worktree of a bigger repository
   used the main working tree's settings (its `git.base`, backlog and links were ignored, so runs started from the wrong
   branch); saved permission rules went there too. A command run inside a pipeline's own worktree still maps back to the

@@ -232,3 +232,18 @@ describe('a refused command line with several commands', () => {
     expect(extract({ jsonFile: files.json, logFile: files.log, stateFile: files.state, stage: 'spec', cwd: CWD, allowed: ['Bash(cd:*)', 'Bash(echo:*)'] })).toBe(0);
   });
 });
+
+describe('package-manager scripts', () => {
+  test('a refused `npm run <script>` (and pnpm, yarn, bun) asks for that script only, not every script', () => {
+    const rule = (command: string) => ruleFor('Bash', { command }, CWD);
+    expect(rule('npm run generate-spec --prefix server')).toBe('Bash(npm run generate-spec:*)');
+    expect(rule('pnpm run build:prod')).toBe('Bash(pnpm run build:prod:*)');
+    expect(rule('yarn exec tsc --noEmit')).toBe('Bash(yarn exec tsc:*)');
+    expect(rule('npm run-script lint')).toBe('Bash(npm run-script lint:*)');
+    // no script name, or an option where it would be: the two words, as before
+    expect(rule('npm run')).toBe('Bash(npm run:*)');
+    expect(rule('npm run --silent x')).toBe('Bash(npm run:*)');
+    expect(rule('npm install pino')).toBe('Bash(npm install:*)');
+    expect(rule('make run tests')).toBe('Bash(make run:*)');
+  });
+});
