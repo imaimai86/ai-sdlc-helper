@@ -155,7 +155,7 @@ describe('command line', () => {
     expect(usage.stderr).toContain('Usage: ai-sdlc-helper permissions');
   });
 
-  test('permit decides the asks of <backlogDir>/<slug> in the project and saves always-rules in the main working tree', async () => {
+  test('permit decides the asks of <backlogDir>/<slug> in the project and saves always-rules in that project', async () => {
     const root = tmp('sdlc-permit-');
     dirs.push(root);
     const git = (...a: string[]) => spawnSync('git', ['-C', root, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' });
@@ -173,7 +173,7 @@ describe('command line', () => {
     const rules = path.join(root, '.claude', 'sdlc-permissions.json');
     expect(JSON.parse(fs.readFileSync(rules, 'utf8')).allow).toEqual(['Bash(git push:*)']);
 
-    // from another worktree the rules still go to the main one
+    // another worktree with its own settings and backlog is its own project: its rules are its own
     const wt = `${root}-wt`;
     dirs.push(wt);
     git('worktree', 'add', '-q', '-b', 'other', wt);
@@ -183,8 +183,8 @@ describe('command line', () => {
     fs.writeFileSync(wtState, JSON.stringify({ pending: [{ stage: 'plan', tool: 'Bash', detail: 'make', rule: 'Bash(make:*)', protected: false }] }));
     r = await cli(wt, 'permit', 'my-feature', 'always');
     expect([r.status, r.stdout.trim()]).toEqual([0, '0']);
-    expect(JSON.parse(fs.readFileSync(rules, 'utf8')).allow).toEqual(['Bash(git push:*)', 'Bash(make:*)']);
-    expect(fs.existsSync(path.join(wt, '.claude', 'sdlc-permissions.json'))).toBe(false);
+    expect(JSON.parse(fs.readFileSync(rules, 'utf8')).allow).toEqual(['Bash(git push:*)']);
+    expect(JSON.parse(fs.readFileSync(path.join(wt, '.claude', 'sdlc-permissions.json'), 'utf8')).allow).toEqual(['Bash(make:*)']);
 
     // the remaining ask, all at once by default, denied
     r = await cli(root, 'permit', 'my-feature', 'deny');

@@ -4,7 +4,7 @@
 // a path or command.
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { projectRoot } from '../runs/records.js';
 
 /** The repository's saved allow rules, in its main working tree. */
 export const REPO_RULES = '.claude/sdlc-permissions.json';
@@ -202,11 +202,12 @@ export function decide(stateFile: string, which: string, choice: string, repoFil
   return state.pending.length;
 }
 
-/** The repository's saved rules file: in the main working tree, whichever checkout <root> is. */
+/**
+ * The project's saved rules file: in the checkout the project lives in, also when <root> is one of its pipeline runs'
+ * worktrees (see projectRoot), so every run of the project sees the same rules.
+ */
 export function repoRulesFile(root: string): string {
-  const r = spawnSync('git', ['-C', root, 'worktree', 'list', '--porcelain'], { encoding: 'utf8' });
-  const main = r.status === 0 ? (r.stdout.split('\n').find(l => l.startsWith('worktree ')) || '').slice('worktree '.length) : '';
-  return path.join(main || root, REPO_RULES);
+  return path.join(projectRoot(root), REPO_RULES);
 }
 
 /**
