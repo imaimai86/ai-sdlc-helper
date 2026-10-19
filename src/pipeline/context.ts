@@ -70,6 +70,8 @@ export interface Ctx {
   allowed: string[];
   /** The command that runs one test file: `<cmd> <file>`. */
   testFileCmd: string;
+  /** The GET-only web read for agents ({{FETCH_CMD}}). */
+  fetchCmd: string;
   permRepo: string;
   redSha: string;
   lockSha: string;

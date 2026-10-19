@@ -12,6 +12,7 @@ import {
 import { nodeRun } from '../config/node.js';
 import type { Language } from '../config/detect.js';
 import { argsProblem, parseArgs } from './args.js';
+import { fetchHosts, fetchProblem, fetchUrl } from '../fetch.js';
 import { TOOL_COMMANDS, TOOL_FLAGS, TOOL_USAGE, TOOL_VALUED, projectTool } from './project-tools.js';
 import { PROJECT_COMMANDS, PROJECT_FLAGS, PROJECT_USAGE, PROJECT_VALUED, projects } from './projects.js';
 import { RUNNER_COMMANDS, RUNNER_FLAGS, RUNNER_USAGE, RUNNER_VALUED, runners } from './runners.js';
@@ -27,7 +28,7 @@ export interface Io {
   cwd?: string;
 }
 
-const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS, ...TOOL_COMMANDS, ...RUNS_COMMANDS, ...PIPELINE_COMMANDS];
+const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'fetch', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS, ...TOOL_COMMANDS, ...RUNS_COMMANDS, ...PIPELINE_COMMANDS];
 const VALUED = ['--runner', '--language', '--test-dir', '--use', ...PROJECT_VALUED, ...RUNNER_VALUED, ...TOOL_VALUED, ...RUNS_VALUED, ...PIPELINE_VALUED];
 const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...PROJECT_FLAGS, ...RUNNER_FLAGS, ...TOOL_FLAGS, ...RUNS_FLAGS, ...PIPELINE_FLAGS];
 
@@ -45,6 +46,8 @@ export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
   code-search [dir] [--list | --use <name|auto|none>]
                                    the code indexer the agents search with (graft, graphify, your own) or none
   skill <name> [dir]               a skill's text for this project
+  fetch <https-url>                one GET request, the body on stdout: the web read stage agents may run (hosts:
+                                   the npm registry, unpkg, jsDelivr, GitHub; AI_SDLC_HELPER_FETCH_HOSTS overrides)
 ${PROJECT_USAGE}
 ${RUNNER_USAGE}${TOOL_USAGE}${RUNS_USAGE}
 ${PIPELINE_USAGE}
@@ -216,6 +219,13 @@ export async function main(argv: string[], io: Io): Promise<number> {
   if (languageArg !== undefined && !LANGUAGES.includes(languageArg as Language)) { io.err(`ERROR: --language must be javascript or typescript\n\n${USAGE}`); return 2; }
   for (const o of ['--runner', '--test-dir', '--use']) if (a.value(o) === '') { io.err(`ERROR: ${o} needs a value\n\n${USAGE}`); return 2; }
 
+  if (cmd === 'fetch') {
+    const url = dirArg;
+    if (!url || extra) { io.err('ERROR: usage: ai-sdlc-helper fetch <https-url>'); return 2; }
+    const problem = fetchProblem(url, fetchHosts(env));
+    if (problem) { io.err(`ERROR: fetch: ${problem}`); return 2; }
+    try { io.out((await fetchUrl(url)).replace(/\n$/, '')); return 0; } catch (e) { io.err(`ERROR: fetch: ${(e as Error).message}`); return 1; }
+  }
   if (cmd === 'skill') {
     const text = dirArg ? renderSkill(dirArg, path.resolve(cwd, extra || '.'), { env }) : null;
     if (text === null) { io.err(`ERROR: no skill "${dirArg || ''}" (skills: ${skillNames().join(', ')})`); return 2; }

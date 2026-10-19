@@ -197,3 +197,38 @@ describe('command line', () => {
     expect(await cli(root, 'permit', 'my-feature', 'maybe')).toMatchObject({ status: 1, stderr: expect.stringContaining('allow, always or deny') });
   });
 });
+
+describe('a refused command line with several commands', () => {
+  test('is named by its first command that no allow rule covers', () => {
+    const allowed = ['Bash(cd:*)', 'Bash(echo:*)', 'Bash(cat:*)', 'Bash(ls:*)', 'Bash(git log *)', 'Bash(pwd)'];
+    const cases = [
+      // separators inside quotes do not split the command
+      [`cd ${CWD}; sed -n '/^- New \`a;b\`/,/x|y/p' brief.md; echo ---`, 'Bash(sed:*)'],
+      ['cat a.js; grep -n "x\\|y" b.js; ls s | grep -i p', 'Bash(grep:*)'],
+      ['cd server && npm install pino', 'Bash(npm install:*)'],
+      ['git log --oneline -3 || git status', 'Bash(git status:*)'],
+      ['pwd; pwd --x', 'Bash(pwd:*)'],
+      // every part allowed (refused for another reason): the first part, as before
+      ['cd server; cat a.js', 'Bash(cd server:*)'],
+      ['cd server', 'Bash(cd server:*)'],
+    ];
+    for (const [command, rule] of cases) expect([command, ruleFor('Bash', { command }, CWD, allowed)]).toEqual([command, rule]);
+  });
+
+  test('extract names it by the part the agent was not allowed (SDLC_ALLOWED for the command), and does not ask again once allowed', async () => {
+    const line = `cd ${CWD}; sed -n 1,5p a.md; echo ---`;
+    fs.writeFileSync(files.json, agentJson([denial('Bash', { command: line })]));
+    const saved = process.env.SDLC_ALLOWED;
+    process.env.SDLC_ALLOWED = 'Bash(cd:*)\nBash(echo:*)\n';
+    let r;
+    try { r = await cli(dir, 'permissions', 'extract', files.json, files.log, files.state, 'spec', CWD); } finally {
+      if (saved === undefined) delete process.env.SDLC_ALLOWED; else process.env.SDLC_ALLOWED = saved;
+    }
+    expect(r.stdout.trim()).toBe('1');
+    expect(loadState(files.state).pending[0]).toMatchObject({ detail: line, rule: 'Bash(sed:*)' });
+
+    decide(files.state, '0', 'allow', files.repo);
+    fs.writeFileSync(files.json, agentJson([denial('Bash', { command: line })]));
+    expect(extract({ jsonFile: files.json, logFile: files.log, stateFile: files.state, stage: 'spec', cwd: CWD, allowed: ['Bash(cd:*)', 'Bash(echo:*)'] })).toBe(0);
+  });
+});

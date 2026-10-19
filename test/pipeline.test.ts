@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { READ_ONLY_COMMANDS, READ_ONLY_EXACT } from '../src/config/settings.js';
 import {
   DOCS, LOG, NODE_TEST, SLUG, filesIn, fixture, git, pipeline, read, statusOf, subjects,
 } from './pipeline-fixture.js';
@@ -50,7 +51,11 @@ describe('a full run', () => {
     expect(impl).not.toContain('Use a queue.');
     const args = read(f.fake, 'args-implement.txt').split('\n');
     const tools = args.slice(args.indexOf('--allowedTools') + 1, args.indexOf('--output-format'));
-    expect(tools).toEqual(['Read', 'Write', 'Edit', 'Glob', 'Grep', `Bash(${NODE_TEST}:*)`, 'Bash(ls:*)', 'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(ai-sdlc-helper run --file:*)']);
+    expect(tools).toEqual([
+      'Read', 'Write', 'Edit', 'Glob', 'Grep', `Bash(${NODE_TEST}:*)`, 'Bash(ls:*)', 'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)',
+      ...READ_ONLY_COMMANDS.map(c => `Bash(${c}:*)`), ...READ_ONLY_EXACT.map(c => `Bash(${c})`),
+      'Bash(ai-sdlc-helper run --file:*)', 'Bash(ai-sdlc-helper fetch:*)',
+    ]);
     expect(args.slice(args.indexOf('--model'), args.indexOf('--model') + 6)).toEqual(['--model', 'sonnet', '--effort', 'medium', '--permission-mode', 'acceptEdits']);
     expect(args.slice(-5)).toEqual(['--output-format', 'json', '--max-turns', '40', '']);
     // FROM steers this run only
@@ -58,7 +63,7 @@ describe('a full run', () => {
     expect(read(f.fake, 'env-implement.txt')).not.toMatch(/^FROM=/m);
 
     const st = statusOf(f.dir);
-    expect(Object.keys(st)).toEqual(['slug', 'state', 'stage', 'agent', 'model', 'effort', 'models', 'attempt', 'agent_started', 'run_started', 'updated', 'pid']);
+    expect(Object.keys(st)).toEqual(['slug', 'state', 'stage', 'agent', 'model', 'effort', 'models', 'attempt', 'agent_started', 'run_started', 'updated', 'pid', 'note']);
     expect(st).toMatchObject({ slug: SLUG, state: 'done', stage: 'Commit', agent: '', model: '', effort: '', attempt: '', pid: process.pid });
     expect(st.models).toEqual({
       spec: { model: 'opus', effort: 'medium' }, plan: { model: 'opus', effort: 'medium' }, 'red-tests': { model: 'sonnet', effort: 'medium' },

@@ -297,6 +297,18 @@ export const agentRules = (config: Config): string[] => [...new Set([
 ])];
 
 /** The tools every stage agent may use: file tools, code search, the project commands, read-only git. */
+/**
+ * Read-only commands every stage agent may run without a prompt. No find (-exec, -delete), no interpreters, curl or
+ * wget: web reads go through `ai-sdlc-helper fetch` (GET only, allowed hosts), added by the pipeline.
+ */
+export const READ_ONLY_COMMANDS = [
+  'cd', 'cat', 'head', 'tail', 'wc', 'grep', 'rg', 'stat', 'file', 'diff', 'sort', 'uniq', 'cut', 'tr', 'jq', 'which',
+  'command -v', 'readlink', 'realpath', 'dirname', 'basename', 'git show', 'git ls-files', 'git rev-parse', 'git blame',
+  'git worktree list', 'git grep', 'git cat-file', 'tree', 'du', 'date', 'echo', 'npm ls', 'npm view',
+];
+/** Read-only commands allowed only exactly as written (no arguments). */
+export const READ_ONLY_EXACT = ['pwd', 'git branch --show-current', 'npm --version'];
+
 export function allowedTools(config: Config): string[] {
   const ix = config.agent.codeIndexer || { tools: [], commands: [] };
   const bash = (cmd: string) => `Bash(${cmd}:*)`;
@@ -306,6 +318,7 @@ export function allowedTools(config: Config): string[] {
     ...agentRules(config),
     ...ix.commands.map(bash),
     bash('ls'), bash('git status'), bash('git diff'), bash('git log'),
+    ...READ_ONLY_COMMANDS.map(bash), ...READ_ONLY_EXACT.map(c => `Bash(${c})`),
   ])];
 }
 

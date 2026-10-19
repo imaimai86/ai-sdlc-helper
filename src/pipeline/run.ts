@@ -50,11 +50,14 @@ const numberEnv = (env: NodeJS.ProcessEnv, name: string, fallback: number): numb
 };
 
 /** `ai-sdlc-helper run --file`: the installed command when it is on PATH, else this package's own bin with this Node. */
-export function defaultTestFileCmd(env: NodeJS.ProcessEnv): string {
-  if (onPath('ai-sdlc-helper', { env })) return 'ai-sdlc-helper run --file';
+export function defaultToolCmd(env: NodeJS.ProcessEnv): string {
+  if (onPath('ai-sdlc-helper', { env })) return 'ai-sdlc-helper';
   const bin = fileURLToPath(new URL('../bin.js', import.meta.url));
-  return exists(bin) ? `${shellWord(process.execPath)} ${shellWord(bin)} run --file` : 'ai-sdlc-helper run --file';
+  return exists(bin) ? `${shellWord(process.execPath)} ${shellWord(bin)}` : 'ai-sdlc-helper';
 }
+export const defaultTestFileCmd = (env: NodeJS.ProcessEnv): string => `${defaultToolCmd(env)} run --file`;
+/** The GET-only web read the agents may run (`ai-sdlc-helper fetch <https-url>`). */
+export const defaultFetchCmd = (env: NodeJS.ProcessEnv): string => `${defaultToolCmd(env)} fetch`;
 
 /** The first pending item ("- [ ] `slug`") of a backlog index, or ''. */
 export function firstPending(indexFile: string): string {
@@ -137,6 +140,7 @@ async function setup(opts: PipelineOptions, from: From, env: NodeJS.ProcessEnv, 
   for (const w of searchNote) out(`NOTE: ${w}`);
   const search = { codeSearch: config.agent.codeSearch, indexer: config.agent.codeIndexer, warning: null };
   const testFileCmd = opts.testFileCmd || defaultTestFileCmd(env);
+  const fetchCmd = defaultFetchCmd(env);
 
   const status = new Status(path.join(root, log, 'status.json'), slug);
   const git = new Git(root, env);
@@ -145,7 +149,7 @@ async function setup(opts: PipelineOptions, from: From, env: NodeJS.ProcessEnv, 
     branch: `${config.git.branchPrefix}${slug}`, env, envModels: envModels(root, env), registryFile: registryFile(env), limits,
     git, keys: new Keys(testLayout(config), root), status, spawnAgent: opts.spawnAgent || spawnClaude, signal: opts.signal,
     promptsDir: opts.promptsDir || PROMPTS_DIR, guide: codeSearchGuide(search, root),
-    allowed: [...new Set([...allowedTools(config), `Bash(${testFileCmd}:*)`])], testFileCmd,
+    allowed: [...new Set([...allowedTools(config), `Bash(${testFileCmd}:*)`, `Bash(${fetchCmd}:*)`])], testFileCmd, fetchCmd,
     // Repository-wide allow rules live in the main working tree, so every worktree run sees them.
     permRepo: repoRulesFile(root),
     redSha: '', lockSha: '', origRedSha: '', failLog: `${log}/tests.log`, out, err,

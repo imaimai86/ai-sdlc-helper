@@ -69,6 +69,20 @@ When the Spec stage has questions, the run pauses too: answer them on the `**Ans
 - `tests.retry`: run failed test files once more before a failure counts; tests that pass the second time are reported as flaky. Not set: the pipeline retries and `ai-sdlc-helper run` does not. `run --retry` and `--no-retry` override it.
 - `tests.maxWorkers`: the Jest and Vitest worker limit: a number, `"auto"` (half the CPUs, at least 1) or `null` (the runner's own default; the default). It applies to every test run of the pipeline; `run --max-workers` overrides it. Mocha and node:test have no worker limit.
 
+### New dependencies
+No stage before Implement installs anything, and a brief should never ask the developer to install a package first. The Plan stage confirms a new package's API from its published README and type definitions (WebFetch, WebSearch, context7 when installed, or `ai-sdlc-helper fetch <https-url>`, a GET-only read from the npm registry, unpkg, jsDelivr and GitHub; `AI_SDLC_HELPER_FETCH_HOSTS` replaces the host list) and lists exact versions in `plan-1.md`:
+
+```markdown
+## Dependencies
+- runtime: pino@9.5.0
+- dev: @types/pino@7.0.5
+```
+
+The pipeline installs them at the start of Implement, in the suite's package with its package manager and without install scripts (`SDLC_DEP_SCRIPTS=run` allows them). In a worktree, a `node_modules` linked to the main checkout is first replaced by the worktree's own install, so the main checkout's packages never change.
+
+### Usage limits
+When an agent's call ends because the account hit its usage limit, the run does not fail: it waits and runs the same agent again every `SDLC_LIMIT_RETRY` seconds (default 300), for up to `SDLC_LIMIT_MAX_WAIT` seconds (default 21600, 6 hours). Meanwhile `status.json` stays `running` with a `note` such as `usage limit, resets 1:10am (Asia/Dubai)`; past the limit the stage fails.
+
 ## Commands
 The output of `ai-sdlc-helper help`:
 

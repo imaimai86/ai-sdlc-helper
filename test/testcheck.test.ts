@@ -472,3 +472,16 @@ describe('testcheck resumecheck', () => {
     expect(r.stderr).toContain(`REJECT: test repair was already accepted in commit ${sha}: use FROM=review`);
   });
 });
+
+describe('precheck justification', () => {
+  test('a claim citing the spec, the plan, a decision or an isolation defect passes; one with no such reason is rejected', async () => {
+    const now = writeJson('now.json', jestJson([file(FA(), [['t', 'failed']])]));
+    for (const why of ['contradicts specs-1.md §6', 'plan-1.md step 4 replaces console.error', 'decision Q2 says so', 'leaked mock from another test']) {
+      const r = await run('precheck', now, claimsFile([`server/${KA} :: t :: ${why}`]), '3');
+      expect([why, r.status, r.stderr]).toEqual([why, 0, '']);
+    }
+    const r = await run('precheck', now, claimsFile([`server/${KA} :: t :: it is just wrong`]), '3');
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(`claim gives no spec/plan/decision/isolation justification: ${KA}::t`);
+  });
+});
