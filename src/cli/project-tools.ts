@@ -9,6 +9,7 @@ import { backlogMain, backlogPlace } from '../backlog/index.js';
 import { projectDir } from '../registry/projects.js';
 import { parseArgs } from './args.js';
 import { runCheckout, runsChanges } from './runs.js';
+import { mainTree, readRecord, registryDir } from '../runs/records.js';
 import type { Io } from './main.js';
 
 export const TOOL_COMMANDS = ['changes', 'permissions', 'permit', 'model', 'backlog'];
@@ -68,7 +69,10 @@ function permit(io: Io, cwd: string, args: string[], env: NodeJS.ProcessEnv): nu
   const root = a.value('--project') !== undefined ? projectDir(a.value('--project'), cwd, env) : gitRoot(cwd);
   const docs = path.join(runCheckout(root, slug, env) || root, backlogPlace(root).backlogDir, slug);
   if (!exists(docs)) { io.err(`No pipeline for ${slug}`); return 1; }
-  io.out(String(decide(path.join(docs, 'logs', 'permissions.json'), which, choice, repoRulesFile(root))));
+  // Saved rules belong to the run's project: the checkout that started it (an older record: the main working tree).
+  const rec = readRecord(registryDir(root), slug);
+  const home = rec && rec.worktree ? (typeof rec.root === 'string' && rec.root ? rec.root : mainTree(root, env)) : root;
+  io.out(String(decide(path.join(docs, 'logs', 'permissions.json'), which, choice, repoRulesFile(home))));
   return 0;
 }
 
