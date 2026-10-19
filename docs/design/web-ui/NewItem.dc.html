@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New backlog item</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0a7480}a:hover{color:#075b64}
+.app{--bg:#0f1216;--pn:#151a21;--pn2:#1b212a;--ln:#262d36;--tx:#d6dde5;--mu:#8d98a5;--run:#56d4dd;--wait:#e3b341;--fail:#ff7b72;--done:#7ee787;--fut:#b3a6f0;--pri:#56d4dd;--onpri:#0b1a1c;--code:#0b0e12;--sel:#12303a;background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.45;min-height:100vh}
+.app[data-theme=light]{--bg:#f4f6f8;--pn:#ffffff;--pn2:#eef1f4;--ln:#d5dbe2;--tx:#1c2330;--mu:#566170;--run:#0a7480;--wait:#8a5a00;--fail:#c4202b;--done:#1a7f37;--fut:#6e40c9;--pri:#0a7480;--onpri:#ffffff;--code:#f7f8fa;--sel:#dff3f5}
+.app[data-theme=dark] a{color:#56d4dd}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px}
+.btn{font:inherit;font-size:13px;min-height:40px;padding:0 14px;border-radius:6px;border:1px solid var(--ln);background:var(--pn2);color:var(--tx);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;text-decoration:none}
+.btn-p{background:var(--pri);border-color:var(--pri);color:var(--onpri);font-weight:600}
+.btn-s{min-height:32px;padding:0 10px;font-size:12px}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.seg{font:inherit;font-size:12px;min-height:32px;padding:0 10px;border:0;background:transparent;color:var(--mu);cursor:pointer;border-radius:4px}
+.seg-on{background:var(--pn);color:var(--tx);font-weight:600}
+.tag{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid var(--ln);color:var(--mu);white-space:nowrap}
+.fut{border:1px dashed var(--fut);color:var(--fut)}
+.pn{background:var(--pn);border:1px solid var(--ln);border-radius:8px}
+.lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);font-weight:600}
+.navi{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;border-radius:6px;color:var(--tx);text-decoration:none;font-size:13.5px}
+.navi-on{background:var(--sel);font-weight:600}
+.inp{font:inherit;font-size:13px;background:var(--bg);border:1px solid var(--ln);color:var(--tx);border-radius:6px;padding:8px 10px;min-height:40px;box-sizing:border-box}
+.ph{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--ln)}
+.fld{display:flex;flex-direction:column;gap:6px}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--ln); background: var(--pn)">
+<a href="Main.dc.html" class="mono" style="font-weight: 500; font-size: 14px; text-decoration: none; color: var(--tx)">◆ ai-sdlc-helper <span style="color: var(--mu)">0.1.0</span></a>
+<button class="btn btn-s" type="button">retail-wholesale ▾</button>
+<button class="btn btn-s" type="button" style="flex: 1 1 260px; justify-content: space-between; color: var(--mu); max-width: 520px">Search, or run any command… <span class="mono">⌘K</span></button>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="tag" style="color: var(--run)">● 2 running</span><span class="tag" style="color: var(--wait)">⏸ 2 need you</span><span class="tag" style="color: var(--fail)">✘ 1 failed</span></div>
+<div role="group" aria-label="Theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 6px; background: var(--pn2); border: 1px solid var(--ln)">
+<button type="button" class="{{lightCls}}" aria-pressed="{{lightOn}}" onClick="{{setLight}}">Light</button>
+<button type="button" class="{{darkCls}}" aria-pressed="{{darkOn}}" onClick="{{setDark}}">Dark</button>
+<button type="button" class="{{sysCls}}" aria-pressed="{{sysOn}}" onClick="{{setSys}}">System</button>
+</div>
+<span class="tag">127.0.0.1:4477</span>
+</header>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Main" style="flex: 1 1 200px; max-width: 240px; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; box-sizing: border-box">
+<div class="lbl" style="padding: 4px 10px">Workspace</div>
+<a class="navi" href="Main.dc.html">Board</a>
+<a class="navi" href="Run.dc.html">Runs</a>
+<a class="navi navi-on" href="NewItem.dc.html">Backlog <span class="tag">12</span></a>
+<div class="lbl" style="padding: 12px 10px 4px">Configure</div>
+<a class="navi" href="Settings.dc.html">Settings</a>
+<a class="navi" href="Prompts.dc.html">Prompts and skills</a>
+<a class="navi" href="Models.dc.html">Models</a>
+<div class="lbl" style="padding: 12px 10px 4px">System</div>
+<a class="navi" href="Projects.dc.html">Projects</a>
+<a class="navi" href="Roadmap.dc.html">Engine requests</a>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600; flex: 1 1 auto">New backlog item</h1>
+<button class="btn" type="button" disabled>Draft with the triage agent <span class="tag fut">Future · E-8</span></button>
+<button class="btn" type="button" disabled>Import from issue URL… <span class="tag fut">Future · E-14</span></button>
+</div>
+<section class="pn" aria-label="Item">
+<div style="padding: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+<div class="fld"><label class="lbl" for="slug">Slug</label><input id="slug" class="inp mono" value="add-rate-limit"><span style="font-size: 12px; color: var(--done)">✔ free · lowercase, digits and dashes</span></div>
+<div class="fld"><label class="lbl" for="type">Type</label><select id="type" class="inp"><option>feature</option><option>bug</option></select></div>
+<div class="fld"><label class="lbl" for="prio">Priority</label><select id="prio" class="inp"><option>P1 (high)</option><option>P2 (normal)</option><option>P3 (low)</option></select></div>
+<div class="fld" style="grid-column: 1 / -1"><label class="lbl" for="title">Title (the index line)</label><input id="title" class="inp" value="Rate limit the /auth routes per IP and per user"></div>
+</div>
+<div class="mono" style="padding: 0 14px 12px; color: var(--mu)">Docs/backlog/index.md ← - [ ] `add-rate-limit` - Feature: Rate limit the /auth routes per IP and per user</div>
+</section>
+<section class="pn" aria-label="Brief">
+<div class="ph">
+<span style="font-weight: 600">brief.md</span>
+<div role="tablist" aria-label="Editor view" style="display: flex; gap: 2px; padding: 3px; background: var(--pn2); border-radius: 6px">
+<button class="seg" type="button" role="tab" aria-selected="false">Write</button>
+<button class="seg seg-on" type="button" role="tab" aria-selected="true">Split</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Preview</button>
+</div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<button class="btn btn-s" type="button">Insert template</button>
+<button class="btn btn-s" type="button">Use my template…</button>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap">
+<label for="brief" style="position: absolute; left: -9999px">Brief, Markdown</label>
+<textarea id="brief" class="mono" style="flex: 1 1 420px; min-width: 0; min-height: 520px; border: 0; border-right: 1px solid var(--ln); background: var(--code); color: var(--tx); padding: 14px; font-size: 12.5px; line-height: 1.7; resize: vertical; box-sizing: border-box"># add-rate-limit
+
+Type: feature
+Priority: P1 (high)
+
+## Problem
+POST /auth/login and /auth/token accept unlimited attempts.
+
+## Expected behaviour
+More than 10 attempts per IP per minute, or 5 per user, return 429 with { "error": "too many attempts" } and a Retry-After header.
+
+## Decisions
+- Store: in memory per process; Redis is out of scope.
+
+## Scope
+- In: server/routes/auth.js, server/middleware/
+- Out: other routes
+
+## Tests
+- server/__tests__/auth-rate-limit.test.js
+
+## Docs
+- README.md: the limits
+
+## Open questions
+- none</textarea>
+<div style="flex: 1 1 420px; min-width: 0; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 20px; font-weight: 600">add-rate-limit</div>
+<div style="color: var(--mu); font-size: 13px">Type: feature · Priority: P1 (high)</div>
+<div style="font-weight: 600; margin-top: 6px">Problem</div>
+<div style="font-size: 13.5px">POST /auth/login and /auth/token accept unlimited attempts.</div>
+<div style="font-weight: 600; margin-top: 6px">Expected behaviour</div>
+<div style="font-size: 13.5px">More than 10 attempts per IP per minute, or 5 per user, return 429 with <span class="mono">{ "error": "too many attempts" }</span> and a Retry-After header.</div>
+<div style="font-weight: 600; margin-top: 6px">Decisions</div>
+<div style="font-size: 13.5px">Store: in memory per process; Redis is out of scope.</div>
+<div style="font-weight: 600; margin-top: 6px">Scope</div>
+<div style="font-size: 13.5px">In: server/routes/auth.js, server/middleware/ · Out: other routes</div>
+<div style="border: 1px solid var(--ln); border-radius: 6px; padding: 10px 12px; font-size: 12.5px; color: var(--mu); margin-top: 8px">Brief check: every section filled · no open questions · a Tests section names real files. Fewer gaps here mean fewer Spec question rounds.</div>
+</div>
+</div>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<button class="btn btn-p" type="button">Save and start</button>
+<button class="btn" type="button">Save</button>
+<a class="btn" href="Main.dc.html">Cancel</a>
+<span class="mono" style="color: var(--mu); margin-left: auto">writes in the main working tree · not committed</span>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = (this.state && this.state.mode) || this.props.theme || 'dark';
+    let theme = mode;
+    if (mode === 'system') {
+      theme = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    const cls = (m) => (mode === m ? 'seg seg-on' : 'seg');
+    return {
+      theme,
+      lightCls: cls('light'), darkCls: cls('dark'), sysCls: cls('system'),
+      lightOn: String(mode === 'light'), darkOn: String(mode === 'dark'), sysOn: String(mode === 'system'),
+      setLight: () => this.setState({ mode: 'light' }),
+      setDark: () => this.setState({ mode: 'dark' }),
+      setSys: () => this.setState({ mode: 'system' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Projects</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0a7480}a:hover{color:#075b64}
+.app{--bg:#0f1216;--pn:#151a21;--pn2:#1b212a;--ln:#262d36;--tx:#d6dde5;--mu:#8d98a5;--run:#56d4dd;--wait:#e3b341;--fail:#ff7b72;--done:#7ee787;--fut:#b3a6f0;--pri:#56d4dd;--onpri:#0b1a1c;--code:#0b0e12;--sel:#12303a;background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.45;min-height:100vh}
+.app[data-theme=light]{--bg:#f4f6f8;--pn:#ffffff;--pn2:#eef1f4;--ln:#d5dbe2;--tx:#1c2330;--mu:#566170;--run:#0a7480;--wait:#8a5a00;--fail:#c4202b;--done:#1a7f37;--fut:#6e40c9;--pri:#0a7480;--onpri:#ffffff;--code:#f7f8fa;--sel:#dff3f5}
+.app[data-theme=dark] a{color:#56d4dd}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px}
+.btn{font:inherit;font-size:13px;min-height:40px;padding:0 14px;border-radius:6px;border:1px solid var(--ln);background:var(--pn2);color:var(--tx);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;text-decoration:none}
+.btn-p{background:var(--pri);border-color:var(--pri);color:var(--onpri);font-weight:600}
+.btn-d{color:var(--fail);border-color:var(--fail);background:transparent}
+.btn-s{min-height:32px;padding:0 10px;font-size:12px}
+.seg{font:inherit;font-size:12px;min-height:32px;padding:0 10px;border:0;background:transparent;color:var(--mu);cursor:pointer;border-radius:4px}
+.seg-on{background:var(--pn);color:var(--tx);font-weight:600}
+.tag{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid var(--ln);color:var(--mu);white-space:nowrap}
+.pn{background:var(--pn);border:1px solid var(--ln);border-radius:8px}
+.lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);font-weight:600}
+.navi{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;border-radius:6px;color:var(--tx);text-decoration:none;font-size:13.5px}
+.navi-on{background:var(--sel);font-weight:600}
+.inp{font:inherit;font-size:13px;background:var(--bg);border:1px solid var(--ln);color:var(--tx);border-radius:6px;padding:8px 10px;min-height:40px;box-sizing:border-box}
+.ph{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--ln)}
+.chk{display:grid;grid-template-columns:22px minmax(0,1fr);gap:4px 8px;padding:7px 0;border-top:1px solid var(--ln);font-size:13px}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--ln); background: var(--pn)">
+<a href="Main.dc.html" class="mono" style="font-weight: 500; font-size: 14px; text-decoration: none; color: var(--tx)">◆ ai-sdlc-helper <span style="color: var(--mu)">0.1.0</span></a>
+<button class="btn btn-s" type="button">retail-wholesale ▾</button>
+<button class="btn btn-s" type="button" style="flex: 1 1 260px; justify-content: space-between; color: var(--mu); max-width: 520px">Search, or run any command… <span class="mono">⌘K</span></button>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="tag" style="color: var(--run)">● 2 running</span><span class="tag" style="color: var(--wait)">⏸ 2 need you</span><span class="tag" style="color: var(--fail)">✘ 1 failed</span></div>
+<div role="group" aria-label="Theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 6px; background: var(--pn2); border: 1px solid var(--ln)">
+<button type="button" class="{{lightCls}}" aria-pressed="{{lightOn}}" onClick="{{setLight}}">Light</button>
+<button type="button" class="{{darkCls}}" aria-pressed="{{darkOn}}" onClick="{{setDark}}">Dark</button>
+<button type="button" class="{{sysCls}}" aria-pressed="{{sysOn}}" onClick="{{setSys}}">System</button>
+</div>
+<span class="tag">127.0.0.1:4477</span>
+</header>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Main" style="flex: 1 1 200px; max-width: 240px; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; box-sizing: border-box">
+<div class="lbl" style="padding: 4px 10px">Workspace</div>
+<a class="navi" href="Main.dc.html">Board</a>
+<a class="navi" href="Run.dc.html">Runs</a>
+<a class="navi" href="NewItem.dc.html">Backlog</a>
+<div class="lbl" style="padding: 12px 10px 4px">Configure</div>
+<a class="navi" href="Settings.dc.html">Settings</a>
+<a class="navi" href="Prompts.dc.html">Prompts and skills</a>
+<a class="navi" href="Models.dc.html">Models</a>
+<div class="lbl" style="padding: 12px 10px 4px">System</div>
+<a class="navi navi-on" href="Projects.dc.html">Projects <span class="tag">3</span></a>
+<a class="navi" href="Roadmap.dc.html">Engine requests</a>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600; flex: 1 1 auto">Projects</h1>
+<span class="mono" style="color: var(--mu); font-size: 11.5px">~/.config/ai-sdlc-helper/projects.json</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px">
+<section class="pn" aria-label="retail-wholesale" style="border-color: var(--pri)">
+<div class="ph"><span><span class="mono" style="font-size: 14px">retail-wholesale</span> <span class="tag">current</span></span><span class="tag" style="color: var(--done); border-color: var(--done)">✔ ready</span></div>
+<div style="padding: 10px 14px; display: flex; flex-direction: column">
+<div class="mono" style="color: var(--mu); padding-bottom: 8px; overflow-wrap: anywhere">~/code/production-retail-and-wholesale</div>
+<div class="chk"><span style="color: var(--done)">✔</span><span>Node 20.11 (project asks 20, via fnm)</span></div>
+<div class="chk"><span style="color: var(--done)">✔</span><span>git 2.45 · claude 2.3 on PATH</span></div>
+<div class="chk"><span style="color: var(--done)">✔</span><span>Settings resolve · 2 suites (jest, vitest)</span></div>
+<div class="chk"><span style="color: var(--done)">✔</span><span>Code search: graft</span></div>
+<div class="chk"><span style="color: var(--done)">✔</span><span>Backlog: 12 items</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; padding-top: 10px"><button class="btn btn-s" type="button">Run doctor again</button><button class="btn btn-s" type="button">Run the tests once</button><button class="btn btn-s" type="button">Edit overrides</button></div>
+</div>
+</section>
+<section class="pn" aria-label="invoicing-api">
+<div class="ph"><span class="mono" style="font-size: 14px">invoicing-api</span><span class="tag" style="color: var(--fail); border-color: var(--fail)">✘ 2 checks fail</span></div>
+<div style="padding: 10px 14px; display: flex; flex-direction: column">
+<div class="mono" style="color: var(--mu); padding-bottom: 8px">~/code/invoicing-api</div>
+<div class="chk"><span style="color: var(--done)">✔</span><span>Node 18.20 · git · claude</span></div>
+<div class="chk"><span style="color: var(--fail)">✘</span><span>No test runner found<br><span style="color: var(--mu)">Fix: set up tests</span> <button class="btn btn-s" type="button">Suggest a framework</button></span></div>
+<div class="chk"><span style="color: var(--fail)">✘</span><span>No backlog index at Docs/backlog/index.md<br><span style="color: var(--mu)">Fix:</span> <button class="btn btn-s" type="button">Create it</button></span></div>
+<div class="chk"><span style="color: var(--wait)">!</span><span>No code indexer; agents use Grep and Glob</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; padding-top: 10px"><button class="btn btn-s" type="button">Open</button><button class="btn btn-s btn-d" type="button">Forget</button></div>
+</div>
+</section>
+<section class="pn" aria-label="Add project" style="border-style: dashed">
+<div class="ph"><span style="font-weight: 600">Add a project</span></div>
+<form style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px" aria-label="Add project form">
+<label class="lbl" for="pp">Folder (any path inside a git repository)</label>
+<input id="pp" class="inp mono" value="~/code/storefront">
+<label class="lbl" for="pnm">Name</label>
+<input id="pnm" class="inp mono" value="storefront">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label class="lbl" for="pwt">Worktree base</label><input id="pwt" class="inp mono" value="../storefront-sdlc"></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label class="lbl" for="ppar">Max parallel</label><input id="ppar" class="inp mono" value="2"></div>
+</div>
+<div class="pn" style="padding: 10px; background: var(--code); display: flex; flex-direction: column; gap: 4px">
+<span class="lbl">Will write</span>
+<span class="mono">+ sdlc.config.json (detected: vitest in web/, node 22)</span>
+<span class="mono">+ Docs/backlog/index.md</span>
+<span class="mono" style="color: var(--mu)">~ projects.json (registry entry)</span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center"><button class="btn btn-p" type="button">Add project</button><button class="btn" type="button">Register only</button></div>
+<span class="mono" style="color: var(--mu)">$ ai-sdlc-helper add ~/code/storefront --yes</span>
+</form>
+</section>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = (this.state && this.state.mode) || this.props.theme || 'dark';
+    let theme = mode;
+    if (mode === 'system') {
+      theme = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    const cls = (m) => (mode === m ? 'seg seg-on' : 'seg');
+    return {
+      theme,
+      lightCls: cls('light'), darkCls: cls('dark'), sysCls: cls('system'),
+      lightOn: String(mode === 'light'), darkOn: String(mode === 'dark'), sysOn: String(mode === 'system'),
+      setLight: () => this.setState({ mode: 'light' }),
+      setDark: () => this.setState({ mode: 'dark' }),
+      setSys: () => this.setState({ mode: 'system' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0a7480}a:hover{color:#075b64}
+.app{--bg:#0f1216;--pn:#151a21;--pn2:#1b212a;--ln:#262d36;--tx:#d6dde5;--mu:#8d98a5;--run:#56d4dd;--wait:#e3b341;--fail:#ff7b72;--done:#7ee787;--fut:#b3a6f0;--pri:#56d4dd;--onpri:#0b1a1c;--code:#0b0e12;--sel:#12303a;--waitbg:#2a2312;background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.45;min-height:100vh}
+.app[data-theme=light]{--bg:#f4f6f8;--pn:#ffffff;--pn2:#eef1f4;--ln:#d5dbe2;--tx:#1c2330;--mu:#566170;--run:#0a7480;--wait:#8a5a00;--fail:#c4202b;--done:#1a7f37;--fut:#6e40c9;--pri:#0a7480;--onpri:#ffffff;--code:#f7f8fa;--sel:#dff3f5;--waitbg:#fff6e0}
+.app[data-theme=dark] a{color:#56d4dd}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px}
+.btn{font:inherit;font-size:13px;min-height:40px;padding:0 14px;border-radius:6px;border:1px solid var(--ln);background:var(--pn2);color:var(--tx);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn-p{background:var(--pri);border-color:var(--pri);color:var(--onpri);font-weight:600}
+.btn-d{color:var(--fail);border-color:var(--fail);background:transparent}
+.btn-s{min-height:32px;padding:0 10px;font-size:12px}
+.seg{font:inherit;font-size:12px;min-height:32px;padding:0 10px;border:0;background:transparent;color:var(--mu);cursor:pointer;border-radius:4px}
+.seg-on{background:var(--pn);color:var(--tx);font-weight:600}
+.tag{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid var(--ln);color:var(--mu);white-space:nowrap}
+.fut{border:1px dashed var(--fut);color:var(--fut)}
+.pn{background:var(--pn);border:1px solid var(--ln);border-radius:8px}
+.lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);font-weight:600}
+.navi{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;border-radius:6px;color:var(--tx);text-decoration:none;font-size:13.5px}
+.navi-on{background:var(--sel);font-weight:600}
+.inp{font:inherit;font-size:13px;background:var(--bg);border:1px solid var(--ln);color:var(--tx);border-radius:6px;padding:0 10px;min-height:40px;box-sizing:border-box}
+.card{background:var(--pn);border:1px solid var(--ln);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:6px}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--ln); background: var(--pn)">
+<a href="Main.dc.html" class="mono" style="font-weight: 500; font-size: 14px; text-decoration: none; color: var(--tx)">◆ ai-sdlc-helper <span style="color: var(--mu)">0.1.0</span></a>
+<button class="btn btn-s" type="button">retail-wholesale ▾</button>
+<button class="btn btn-s" type="button" style="flex: 1 1 260px; justify-content: space-between; color: var(--mu); max-width: 520px">Search, or run any command… <span class="mono">⌘K</span></button>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+<span class="tag" style="color: var(--run)">● 2 running</span>
+<span class="tag" style="color: var(--wait)">⏸ 2 need you</span>
+<span class="tag" style="color: var(--fail)">✘ 1 failed</span>
+</div>
+<div role="group" aria-label="Theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 6px; background: var(--pn2); border: 1px solid var(--ln)">
+<button type="button" class="{{lightCls}}" aria-pressed="{{lightOn}}" onClick="{{setLight}}">Light</button>
+<button type="button" class="{{darkCls}}" aria-pressed="{{darkOn}}" onClick="{{setDark}}">Dark</button>
+<button type="button" class="{{sysCls}}" aria-pressed="{{sysOn}}" onClick="{{setSys}}">System</button>
+</div>
+<span class="tag">127.0.0.1:4477</span>
+</header>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Main" style="flex: 1 1 200px; max-width: 240px; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; box-sizing: border-box">
+<div class="lbl" style="padding: 4px 10px">Workspace</div>
+<a class="navi navi-on" href="Main.dc.html">Board <span class="tag">7</span></a>
+<a class="navi" href="Run.dc.html">Runs</a>
+<a class="navi" href="NewItem.dc.html">Backlog</a>
+<div class="lbl" style="padding: 12px 10px 4px">Configure</div>
+<a class="navi" href="Settings.dc.html">Settings</a>
+<a class="navi" href="Prompts.dc.html">Prompts and skills</a>
+<a class="navi" href="Models.dc.html">Models</a>
+<div class="lbl" style="padding: 12px 10px 4px">System</div>
+<a class="navi" href="Projects.dc.html">Projects</a>
+<a class="navi" href="Roadmap.dc.html">Engine requests</a>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box">
+<section aria-label="Action needed" style="border: 1px solid var(--wait); background: var(--waitbg); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-weight: 600; color: var(--wait)">⏸ Action needed · 2 runs are paused</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center">
+<span><span class="mono">add-auth-token-table</span> · Spec · 3 questions</span>
+<a class="btn btn-s" href="Run.dc.html" style="text-decoration: none">Answer</a>
+<span><span class="mono">fix-user-validation-v2</span> · Implement · 2 refused commands</span>
+<a class="btn btn-s" href="Run.dc.html" style="text-decoration: none">Decide</a>
+</div>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600; flex: 1 1 auto">Board</h1>
+<label class="mono" for="flt" style="position: absolute; left: -9999px">Filter</label>
+<input id="flt" class="inp" placeholder="Filter by slug, stage, state, model…" style="flex: 0 1 320px">
+<button class="btn" type="button">Parallel: 2 ▾</button>
+<a class="btn" href="NewItem.dc.html" style="text-decoration: none">New item</a>
+<button class="btn btn-p" type="button">Run selected (2)</button>
+</div>
+<div class="mono" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 12px; border: 1px dashed var(--ln); border-radius: 6px; color: var(--mu)">
+<span>$ ai-sdlc-helper start add-health-check &amp;&amp; ai-sdlc-helper start add-rate-limit</span>
+<button class="btn btn-s" type="button">Copy</button>
+</div>
+<div style="overflow-x: auto; padding-bottom: 4px">
+<div style="display: grid; grid-template-columns: repeat(8, minmax(168px, 1fr)); gap: 10px; min-width: 1400px">
+<section class="pn" style="padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--pn2)">
+<div style="display: flex; justify-content: space-between"><span class="lbl">Backlog</span><span class="tag">4</span></div>
+<label class="card" style="cursor: pointer; border-color: var(--pri)"><span style="display: flex; gap: 8px; align-items: center"><input type="checkbox" checked> <span class="mono">add-health-check</span></span><span style="font-size: 12.5px; color: var(--mu)">feature · P2 · Add a /health endpoint with DB status</span></label>
+<label class="card" style="cursor: pointer; border-color: var(--pri)"><span style="display: flex; gap: 8px; align-items: center"><input type="checkbox" checked> <span class="mono">add-rate-limit</span></span><span style="font-size: 12.5px; color: var(--mu)">feature · P1 · Rate limit /auth routes</span></label>
+<label class="card" style="cursor: pointer"><span style="display: flex; gap: 8px; align-items: center"><input type="checkbox"> <span class="mono">add-csv-export</span></span><span style="font-size: 12.5px; color: var(--mu)">feature · P3 · Export invoices as CSV</span></label>
+<label class="card" style="cursor: pointer"><span style="display: flex; gap: 8px; align-items: center"><input type="checkbox"> <span class="mono">fix-invoice-rounding</span></span><span style="font-size: 12.5px; color: var(--mu)">bug · P1 · Totals off by one cent</span></label>
+</section>
+<section class="pn" style="padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--pn2)">
+<div style="display: flex; justify-content: space-between"><span class="lbl">Spec</span><span class="tag">1</span></div>
+<a class="card" href="Run.dc.html" style="text-decoration: none; color: var(--tx); border-color: var(--wait)"><span class="mono" style="color: var(--wait)">⏸ add-auth-token-table</span><span style="font-size: 12.5px">3 questions to answer</span><span class="mono" style="color: var(--mu)">opus · medium · 04:12</span></a>
+</section>
+<section class="pn" style="padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--pn2)">
+<div style="display: flex; justify-content: space-between"><span class="lbl">Plan</span><span class="tag">1</span></div>
+<a class="card" href="Run.dc.html" style="text-decoration: none; color: var(--tx)"><span class="mono" style="color: var(--run)">● add-json-logging</span><span style="font-size: 12.5px">reading pino docs</span><span class="mono" style="color: var(--mu)">opus · medium · 02:31</span></a>
+</section>
+<section class="pn" style="padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--pn2)">
+<div style="display: flex; justify-content: space-between"><span class="lbl">Red tests</span><span class="tag">0</span></div>
+<div style="font-size: 12.5px; color: var(--mu); padding: 6px 2px">No runs here</div>
+</section>
+<section class="pn" style="padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--pn2)">
+<div style="display: flex; justify-content: space-between"><span class="lbl">Implement</span><span class="tag">2</span></div>
+<a class="card" href="Run.dc.html" style="text-decoration: none; color: var(--tx); background: var(--sel); border-color: var(--run)"><span class="mono" style="color: var(--run)">● add-db-health-check</span><span style="font-size: 12.5px">tests 41 / 44 · 12 files</span><span class="mono" style="color: var(--mu)">sonnet · medium · 06:48</span></a>
+<a class="card" href="Run.dc.html" style="text-decoration: none; color: var(--tx); border-color: var(--wait)"><span class="mono" style="color: var(--wait)">⏸ fix-user-validation-v2</span><span style="font-size: 12.5px">2 refused commands</span><span class="mono" style="color: var(--mu)">sonnet · high</span></a>
+</section>
+<section class="pn" style="padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--pn2)">
+<div style="display: flex; justify-content: space-between"><span class="lbl">Test repair</span><span class="tag">0</span></div>
+<div style="font-size: 12.5px; color: var(--mu); padding: 6px 2px">No runs here</div>
+</section>
+<section class="pn" style="padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--pn2)">
+<div style="display: flex; justify-content: space-between"><span class="lbl">Review</span><span class="tag">1</span></div>
+<a class="card" href="Run.dc.html" style="text-decoration: none; color: var(--tx); border-color: var(--fail)"><span class="mono" style="color: var(--fail)">✘ add-base-branch-dropdown</span><span style="font-size: 12.5px">2 blocking findings</span><span class="mono" style="color: var(--mu)">opus · medium</span></a>
+</section>
+<section class="pn" style="padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--pn2)">
+<div style="display: flex; justify-content: space-between"><span class="lbl">Ship</span><span class="tag">1</span></div>
+<a class="card" href="Run.dc.html" style="text-decoration: none; color: var(--tx)"><span class="mono" style="color: var(--done)">✔ require-integration-tests</span><span style="font-size: 12.5px">2 commits on sdlc/require-…</span><span class="mono" style="color: var(--mu)">done 18:02</span></a>
+</section>
+</div>
+</div>
+<section class="pn" aria-label="Selected run" style="display: flex; flex-direction: column">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--ln)">
+<span class="mono" style="color: var(--run); font-size: 13.5px">● add-db-health-check</span>
+<span style="color: var(--mu); font-size: 13px">Implement · sonnet · medium · running 06:48</span>
+<div role="tablist" aria-label="Drawer" style="display: flex; gap: 2px; margin-left: auto">
+<button class="seg seg-on" type="button" role="tab" aria-selected="true">Output</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Files (12)</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Tests</button>
+</div>
+<a class="btn btn-s" href="Run.dc.html" style="text-decoration: none">Open run</a>
+<button class="btn btn-s btn-d" type="button">Stop</button>
+</div>
+<pre class="mono" style="margin: 0; padding: 12px; background: var(--code); color: var(--tx); font-size: 12px; line-height: 1.6; overflow-x: auto; border-radius: 0 0 8px 8px">[06:41] Edit server/routes/health.js (+38 −2)
+[06:44] Bash npm test -- server/__tests__/health.test.js
+[06:45] Tests: 3 failed, 41 passed, 44 total
+[06:46] Read server/db/pool.js
+[06:48] Edit server/routes/health.js (+6 −1)  <span style="color: var(--run)">▌</span></pre>
+</section>
+<p class="mono" style="margin: 0; color: var(--mu); font-size: 11.5px">reads Docs/backlog/index.md · .git/sdlc-runs/*.json · each worktree's logs/status.json (live) · <a href="#raw">Edit raw</a></p>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = (this.state && this.state.mode) || this.props.theme || 'dark';
+    let theme = mode;
+    if (mode === 'system') {
+      theme = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    const cls = (m) => (mode === m ? 'seg seg-on' : 'seg');
+    return {
+      theme,
+      lightCls: cls('light'), darkCls: cls('dark'), sysCls: cls('system'),
+      lightOn: String(mode === 'light'), darkOn: String(mode === 'dark'), sysOn: String(mode === 'system'),
+      setLight: () => this.setState({ mode: 'light' }),
+      setDark: () => this.setState({ mode: 'dark' }),
+      setSys: () => this.setState({ mode: 'system' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

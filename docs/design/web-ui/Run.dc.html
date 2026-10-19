@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Run: add-auth-token-table</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0a7480}a:hover{color:#075b64}
+.app{--bg:#0f1216;--pn:#151a21;--pn2:#1b212a;--ln:#262d36;--tx:#d6dde5;--mu:#8d98a5;--run:#56d4dd;--wait:#e3b341;--fail:#ff7b72;--done:#7ee787;--fut:#b3a6f0;--pri:#56d4dd;--onpri:#0b1a1c;--code:#0b0e12;--sel:#12303a;--waitbg:#2a2312;background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.45;min-height:100vh}
+.app[data-theme=light]{--bg:#f4f6f8;--pn:#ffffff;--pn2:#eef1f4;--ln:#d5dbe2;--tx:#1c2330;--mu:#566170;--run:#0a7480;--wait:#8a5a00;--fail:#c4202b;--done:#1a7f37;--fut:#6e40c9;--pri:#0a7480;--onpri:#ffffff;--code:#f7f8fa;--sel:#dff3f5;--waitbg:#fff6e0}
+.app[data-theme=dark] a{color:#56d4dd}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px}
+.btn{font:inherit;font-size:13px;min-height:40px;padding:0 14px;border-radius:6px;border:1px solid var(--ln);background:var(--pn2);color:var(--tx);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;text-decoration:none}
+.btn-p{background:var(--pri);border-color:var(--pri);color:var(--onpri);font-weight:600}
+.btn-d{color:var(--fail);border-color:var(--fail);background:transparent}
+.btn-s{min-height:32px;padding:0 10px;font-size:12px}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.seg{font:inherit;font-size:12px;min-height:32px;padding:0 10px;border:0;background:transparent;color:var(--mu);cursor:pointer;border-radius:4px}
+.seg-on{background:var(--pn);color:var(--tx);font-weight:600}
+.tag{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid var(--ln);color:var(--mu);white-space:nowrap}
+.fut{border:1px dashed var(--fut);color:var(--fut)}
+.pn{background:var(--pn);border:1px solid var(--ln);border-radius:8px}
+.lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);font-weight:600}
+.navi{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;border-radius:6px;color:var(--tx);text-decoration:none;font-size:13.5px}
+.navi-on{background:var(--sel);font-weight:600}
+.inp{font:inherit;font-size:13px;background:var(--bg);border:1px solid var(--ln);color:var(--tx);border-radius:6px;padding:8px 10px;min-height:40px;box-sizing:border-box}
+.sel{font:inherit;font-size:12px;background:var(--bg);border:1px solid var(--ln);color:var(--tx);border-radius:4px;min-height:30px;padding:0 6px}
+.ph{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--ln)}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--ln); background: var(--pn)">
+<a href="Main.dc.html" class="mono" style="font-weight: 500; font-size: 14px; text-decoration: none; color: var(--tx)">◆ ai-sdlc-helper <span style="color: var(--mu)">0.1.0</span></a>
+<button class="btn btn-s" type="button">retail-wholesale ▾</button>
+<button class="btn btn-s" type="button" style="flex: 1 1 260px; justify-content: space-between; color: var(--mu); max-width: 520px">Search, or run any command… <span class="mono">⌘K</span></button>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="tag" style="color: var(--run)">● 2 running</span><span class="tag" style="color: var(--wait)">⏸ 2 need you</span><span class="tag" style="color: var(--fail)">✘ 1 failed</span></div>
+<div role="group" aria-label="Theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 6px; background: var(--pn2); border: 1px solid var(--ln)">
+<button type="button" class="{{lightCls}}" aria-pressed="{{lightOn}}" onClick="{{setLight}}">Light</button>
+<button type="button" class="{{darkCls}}" aria-pressed="{{darkOn}}" onClick="{{setDark}}">Dark</button>
+<button type="button" class="{{sysCls}}" aria-pressed="{{sysOn}}" onClick="{{setSys}}">System</button>
+</div>
+<span class="tag">127.0.0.1:4477</span>
+</header>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Main" style="flex: 1 1 200px; max-width: 240px; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; box-sizing: border-box">
+<div class="lbl" style="padding: 4px 10px">Workspace</div>
+<a class="navi" href="Main.dc.html">Board</a>
+<a class="navi navi-on" href="Run.dc.html">Runs <span class="tag">7</span></a>
+<a class="navi" href="NewItem.dc.html">Backlog</a>
+<div class="lbl" style="padding: 12px 10px 4px">Configure</div>
+<a class="navi" href="Settings.dc.html">Settings</a>
+<a class="navi" href="Prompts.dc.html">Prompts and skills</a>
+<a class="navi" href="Models.dc.html">Models</a>
+<div class="lbl" style="padding: 12px 10px 4px">System</div>
+<a class="navi" href="Projects.dc.html">Projects</a>
+<a class="navi" href="Roadmap.dc.html">Engine requests</a>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box">
+<a href="Main.dc.html" style="font-size: 13px">← Board</a>
+<div style="display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center">
+<h1 class="mono" style="margin: 0; font-size: 22px; font-weight: 500">add-auth-token-table</h1>
+<span class="tag" style="color: var(--wait); border-color: var(--wait)">⏸ paused at Spec</span>
+<span class="tag">branch sdlc/add-auth-token-table</span>
+<span class="tag">base main</span>
+<span class="tag">pid — · started 10:02</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<button class="btn btn-p" type="button">Resume from Spec</button>
+<button class="btn" type="button">Restart from… ▾</button>
+<button class="btn" type="button" disabled>Stop</button>
+<a class="btn" href="vscode://file/home/dev/retail-sdlc/add-auth-token-table">Open worktree in editor</a>
+<button class="btn" type="button">Copy worktree path</button>
+<button class="btn" type="button" disabled>Merge into base <span class="tag fut">Future · E-10</span></button>
+<button class="btn btn-d" type="button">Discard…</button>
+<span class="mono" style="color: var(--mu); margin-left: auto">$ ai-sdlc-helper start add-auth-token-table</span>
+</div>
+<section class="pn" aria-label="Stages">
+<div class="ph"><span style="font-weight: 600">Stages</span><span style="font-size: 12.5px; color: var(--mu)">Model and effort of a stage that has not started apply when the run resumes (MODEL_&lt;STAGE&gt;, EFFORT_&lt;STAGE&gt;). <span class="tag fut">Future · E-2</span> change them while it runs</span></div>
+<div style="overflow-x: auto">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(150px, 1fr)); gap: 0; min-width: 1050px">
+<div style="padding: 12px 14px; border-right: 1px solid var(--ln); display: flex; flex-direction: column; gap: 6px; background: var(--waitbg)">
+<span style="font-weight: 600; color: var(--wait)">⏸ Spec</span>
+<span class="mono" style="color: var(--mu)">opus · medium · in use</span>
+<span style="font-size: 12px; color: var(--mu)">4:12 · 2 rounds</span>
+</div>
+<div style="padding: 12px 14px; border-right: 1px solid var(--ln); display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">○ Plan</span>
+<div style="display: flex; gap: 4px"><select class="sel" aria-label="Plan model"><option>opus</option><option>sonnet</option><option>haiku</option><option>fable</option><option>acme/coder-xl</option></select><select class="sel" aria-label="Plan effort"><option>high</option><option>medium</option></select></div>
+<span class="tag fut" style="align-self: flex-start">Skip · Future E-7</span>
+</div>
+<div style="padding: 12px 14px; border-right: 1px solid var(--ln); display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">○ Red tests</span>
+<div style="display: flex; gap: 4px"><select class="sel" aria-label="Red tests model"><option>sonnet</option></select><select class="sel" aria-label="Red tests effort"><option>medium</option></select></div>
+<span class="tag fut" style="align-self: flex-start">Skip · Future E-7</span>
+</div>
+<div style="padding: 12px 14px; border-right: 1px solid var(--ln); display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">○ Implement</span>
+<div style="display: flex; gap: 4px"><select class="sel" aria-label="Implement model"><option>sonnet</option></select><select class="sel" aria-label="Implement effort"><option>medium</option></select></div>
+</div>
+<div style="padding: 12px 14px; border-right: 1px solid var(--ln); display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">○ Test repair</span>
+<div style="display: flex; gap: 4px"><select class="sel" aria-label="Test repair model"><option>sonnet</option></select><select class="sel" aria-label="Test repair effort"><option>medium</option></select></div>
+<span class="mono" style="color: var(--mu); font-size: 11.5px">audit: opus · medium</span>
+</div>
+<div style="padding: 12px 14px; border-right: 1px solid var(--ln); display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">○ Review</span>
+<div style="display: flex; gap: 4px"><select class="sel" aria-label="Review model"><option>opus</option></select><select class="sel" aria-label="Review effort"><option>medium</option></select></div>
+<span class="tag fut" style="align-self: flex-start">Skip · Future E-7</span>
+</div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">○ Ship</span>
+<span style="font-size: 12px; color: var(--mu)">no agent · commits the cycle's files</span>
+</div>
+</div>
+</div>
+</section>
+<div role="tablist" aria-label="Run" style="display: flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--pn2); border: 1px solid var(--ln); border-radius: 6px; align-self: flex-start">
+<button class="seg seg-on" type="button" role="tab" aria-selected="true">Overview</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Output</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Files</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Docs</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Logs</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Environment</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Raw record</button>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">
+<div style="flex: 2 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<section class="pn" aria-label="Questions">
+<div class="ph"><span style="font-weight: 600; color: var(--wait)">The Spec agent has 3 questions</span><span class="mono" style="color: var(--mu); font-size: 11.5px">Docs/backlog/add-auth-token-table/questions.md · <a href="#raw">Edit raw</a></span></div>
+<div style="padding: 14px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-weight: 600">Q1 · How are tokens stored?</div>
+<div style="color: var(--mu); font-size: 13px">The brief says "store API tokens" but not whether the raw token may be kept in the database.</div>
+<div style="font-size: 13px">Suggested: <span style="color: var(--done)">Store only a SHA-256 hash; show the token once at creation.</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start">
+<button class="btn btn-s" type="button">Use suggested</button>
+<label for="q1" style="position: absolute; left: -9999px">Answer to Q1</label>
+<textarea id="q1" class="inp" rows="2" style="flex: 1 1 320px; resize: vertical">Use suggested. Also index token_hash.</textarea>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-weight: 600">Q2 · Default expiry?</div>
+<div style="font-size: 13px">Suggested: <span style="color: var(--done)">30 days, set by TOKEN_TTL_DAYS.</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start">
+<button class="btn btn-s" type="button">Use suggested</button>
+<label for="q2" style="position: absolute; left: -9999px">Answer to Q2</label>
+<textarea id="q2" class="inp" rows="2" placeholder="Your answer" style="flex: 1 1 320px; resize: vertical"></textarea>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-weight: 600">Q3 · Revoke tokens when the password changes?</div>
+<div style="font-size: 13px">Suggested: <span style="color: var(--done)">Yes, revoke all of the user's tokens.</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start">
+<button class="btn btn-s" type="button">Use suggested</button>
+<label for="q3" style="position: absolute; left: -9999px">Answer to Q3</label>
+<textarea id="q3" class="inp" rows="2" placeholder="Your answer" style="flex: 1 1 320px; resize: vertical"></textarea>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<button class="btn btn-p" type="button">Submit answers and resume</button>
+<span style="font-size: 13px; color: var(--mu)">1 of 3 answered · empty answers are allowed if you want the agent to decide</span>
+</div>
+</div>
+</section>
+<section class="pn" aria-label="Refused actions">
+<div class="ph"><span style="font-weight: 600; color: var(--wait)">2 actions were refused during Spec</span><span class="mono" style="color: var(--mu); font-size: 11.5px">logs/permissions.json · .claude/sdlc-permissions.json</span></div>
+<div style="padding: 14px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div class="mono" style="padding: 8px 10px; background: var(--code); border-radius: 6px; overflow-x: auto">Bash  psql -c "select count(*) from users"</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<button class="btn btn-s btn-p" type="button">Allow this run (Bash(psql:*))</button>
+<button class="btn btn-s" type="button">Allow always</button>
+<button class="btn btn-s" type="button">Edit rule…</button>
+<button class="btn btn-s btn-d" type="button">Deny</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div class="mono" style="padding: 8px 10px; background: var(--code); border-radius: 6px; overflow-x: auto">Edit  .claude/settings.json</div>
+<div style="font-size: 13px; color: var(--wait)">Protected path: allowing it runs the whole Spec stage with permission checks off.</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<button class="btn btn-s" type="button">Allow (stage runs unchecked)</button>
+<button class="btn btn-s btn-d" type="button">Deny</button>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid var(--ln); padding-top: 12px">
+<button class="btn btn-s" type="button">Allow all</button>
+<button class="btn btn-s btn-d" type="button">Deny all</button>
+<span class="mono" style="color: var(--mu); margin-left: auto">$ ai-sdlc-helper permit add-auth-token-table allow 1</span>
+</div>
+</div>
+</section>
+<section class="pn" aria-label="Manual input">
+<div class="ph"><span style="font-weight: 600">Instructions per stage</span><span class="mono" style="color: var(--mu); font-size: 11.5px">manual-inputs.md · binding for that stage's agent</span></div>
+<div style="padding: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="mi-plan" class="lbl">Plan</label><textarea id="mi-plan" class="inp" rows="3">Prefer the existing knex migration style; no new ORM.</textarea><button class="btn btn-s" type="button" style="align-self: flex-start">Resume at Plan</button></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="mi-impl" class="lbl">Implement</label><textarea id="mi-impl" class="inp" rows="3" placeholder="Instructions for the Implement agent"></textarea><button class="btn btn-s" type="button" style="align-self: flex-start">Resume at Implement</button></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="mi-rev" class="lbl">Review</label><textarea id="mi-rev" class="inp" rows="3" placeholder="Instructions for the Review agent"></textarea><button class="btn btn-s" type="button" style="align-self: flex-start">Resume at Review</button></div>
+</div>
+</section>
+</div>
+<div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<section class="pn" aria-label="Run facts">
+<div class="ph"><span style="font-weight: 600">This run</span></div>
+<dl style="margin: 0; padding: 12px 14px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px">
+<dt style="color: var(--mu)">Files</dt><dd style="margin: 0">4 changed · 1 uncommitted</dd>
+<dt style="color: var(--mu)">Tests</dt><dd style="margin: 0">not run yet</dd>
+<dt style="color: var(--mu)">Worktree</dt><dd class="mono" style="margin: 0; overflow-wrap: anywhere">../retail-sdlc/add-auth-token-table</dd>
+<dt style="color: var(--mu)">Usage</dt><dd style="margin: 0">— <span class="tag fut">Future · E-9</span></dd>
+</dl>
+</section>
+<section class="pn" aria-label="Environment">
+<div class="ph"><span style="font-weight: 600">Environment for this run</span><span style="font-size: 12px; color: var(--mu)">applies on Resume</span></div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<div class="mono" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px">
+<input class="inp mono" aria-label="Name" value="SDLC_BASE"><input class="inp mono" aria-label="Value" value="main">
+<input class="inp mono" aria-label="Name" value="EFFORT_PLAN"><input class="inp mono" aria-label="Value" value="high">
+<input class="inp mono" aria-label="Name" value="SDLC_LIMIT_MAX_WAIT"><input class="inp mono" aria-label="Value" value="21600">
+<input class="inp mono" aria-label="Name" value="SDLC_DEP_SCRIPTS"><input class="inp mono" aria-label="Value" value="run">
+</div>
+<button class="btn btn-s" type="button" style="align-self: flex-start">Add variable</button>
+</div>
+</section>
+<section class="pn" aria-label="Documents">
+<div class="ph"><span style="font-weight: 600">Documents</span><span class="mono" style="color: var(--mu); font-size: 11.5px">Docs/backlog/add-auth-token-table/</span></div>
+<ul style="list-style: none; margin: 0; padding: 8px 14px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 13px">
+<li style="display: flex; justify-content: space-between"><span class="mono">brief.md</span><a href="#raw">Edit</a></li>
+<li style="display: flex; justify-content: space-between"><span class="mono">specs-1.md</span><a href="#raw">Edit</a></li>
+<li style="display: flex; justify-content: space-between"><span class="mono">questions.md</span><a href="#raw">Edit</a></li>
+<li style="display: flex; justify-content: space-between"><span class="mono">logs/run.out</span><a href="#raw">Open</a></li>
+</ul>
+</section>
+<section class="pn" aria-label="Recent output">
+<div class="ph"><span style="font-weight: 600">Recent output</span><button class="btn btn-s" type="button">Copy</button></div>
+<pre class="mono" style="margin: 0; padding: 12px; background: var(--code); font-size: 11.5px; line-height: 1.6; overflow-x: auto; border-radius: 0 0 8px 8px">[10:05] Spec: round 2
+[10:06] Grep "tokens" server/
+[10:06] Write questions.md (3)
+[10:06] exit 2: paused (questions)</pre>
+</section>
+</div>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":1440,"height":1600}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = (this.state && this.state.mode) || this.props.theme || 'dark';
+    let theme = mode;
+    if (mode === 'system') {
+      theme = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    const cls = (m) => (mode === m ? 'seg seg-on' : 'seg');
+    return {
+      theme,
+      lightCls: cls('light'), darkCls: cls('dark'), sysCls: cls('system'),
+      lightOn: String(mode === 'light'), darkOn: String(mode === 'dark'), sysOn: String(mode === 'system'),
+      setLight: () => this.setState({ mode: 'light' }),
+      setDark: () => this.setState({ mode: 'dark' }),
+      setSys: () => this.setState({ mode: 'system' }),
+    };
+  }
+}
+</script>
+</body>
+</html>
