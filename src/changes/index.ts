@@ -21,6 +21,11 @@ export interface Changed {
 const git = (root: string, args: string[], input?: string): string =>
   execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, input });
 
+/** The blob hash of <file> in commit <rev>, null when the commit does not have it (the same hash git hash-object gives). */
+const blobAt = (root: string, rev: string, file: string): string | null => {
+  try { return execFileSync('git', ['rev-parse', '--verify', '-q', `${rev}:${file}`], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; }
+};
+
 const isFile = (f: string): boolean => fs.existsSync(f) && fs.statSync(f).isFile();
 
 /** Every path git reports as modified, deleted, untracked or staged, with a content hash (null when the file is gone). */
@@ -137,7 +142,8 @@ interface StageFiles { marker: { files: FileState; head: string } | null; stages
 /**
  * Files each stage changed, for the control pane. The marker is the dirty state and HEAD at the last mark; what differs
  * now is credited to <stage>, the stage that just ended (no stage: only reset the marker). A file committed during a
- * stage counts for it, but one a later commit merely collects (Ship) does not.
+ * stage counts for it when its committed content differs from the last mark, so a commit that merely collects earlier
+ * work (Ship) is not credited, while an earlier stage's file this stage changed and committed is.
  */
 export function mark(target: string, stage: string, opts: ChangesOptions): void {
   let state: StageFiles = { marker: null, stages: {} };
@@ -146,11 +152,15 @@ export function mark(target: string, stage: string, opts: ChangesOptions): void 
   const head = git(opts.root, ['rev-parse', 'HEAD']).trim();
   if (stage && state.marker) {
     const before = state.marker.files;
-    const credited = new Set(Object.values(state.stages).flat());
     const files = new Set<string>();
     for (const f of Object.keys(now)) if (!has(before, f) || before[f] !== now[f]) files.add(f);
     if (state.marker.head !== head) {
-      for (const f of git(opts.root, ['diff', '--name-only', '-z', state.marker.head, head]).split('\0')) if (f && !credited.has(f)) files.add(f);
+      // A file committed during the stage counts when its committed content differs from what it was at the last mark
+      // (its working copy then, or the last mark's commit when it was clean). A commit that only collects earlier work,
+      // unchanged since the last mark, is not credited; a test an earlier stage wrote and this one changed is.
+      for (const f of git(opts.root, ['diff', '--name-only', '-z', state.marker.head, head]).split('\0')) {
+        if (f && (!has(before, f) || before[f] !== blobAt(opts.root, head, f))) files.add(f);
+      }
     }
     const listed = [...files].filter(f => !skipReason(f, false, opts)).sort();
     if (listed.length) state.stages[stage] = [...new Set([...(state.stages[stage] || []), ...listed])].sort();

@@ -17,6 +17,8 @@ export interface StatusLine {
   run_started: string;
   updated: string;
   pid: number;
+  /** Why a running run waits, for example "usage limit, resets 1:10am (Asia/Dubai)"; empty otherwise. */
+  note: string;
 }
 
 /** <logDir>/status.json, written with the same fields, order and values as the shell pipeline wrote them. */
@@ -29,6 +31,7 @@ export class Status {
   models: StatusLine['models'] = {};
   attempt = '';
   agentStarted = '';
+  note = '';
   readonly runStarted = stamp();
 
   constructor(readonly file: string, readonly slug: string, readonly pid = process.pid) {}
@@ -37,7 +40,7 @@ export class Status {
     return {
       slug: this.slug, state: this.state, stage: this.stage, agent: this.agent, model: this.model, effort: this.effort,
       models: this.models, attempt: this.attempt, agent_started: this.agentStarted, run_started: this.runStarted,
-      updated: stamp(), pid: this.pid,
+      updated: stamp(), pid: this.pid, note: this.note,
     };
   }
 

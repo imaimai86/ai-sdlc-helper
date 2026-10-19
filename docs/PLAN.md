@@ -58,12 +58,28 @@ The plugin is thin: every action calls the command. It checks at SessionStart th
       and drops its copies of the scripts.
    Follow-ups (test run settings, Windows shells, test pool limit, README): `feat/followups`.
 5. **Plugin and marketplace.** Commands, pane and hooks move here; `/sdlc-init`; the rules skill;
-   `.claude-plugin/marketplace.json`.
+   `.claude-plugin/marketplace.json`. Move the pane from production-retail-and-wholesale `main` at 33a2934 or later, so it
+   includes its #98 (a paused run with nothing to decide offers Resume at its stage; a run failed at Plan or Red tests
+   resumes there), #99 (the `Implement · waiting: usage limit, resets …` line, paused-state descriptions, Show claim for
+   Test repair) and #100 (the "Action needed" banner for paused pipelines, in the pane and above the prompt).
 6. **End-to-end checks.** Sample projects (Node + Jest, TypeScript + Vitest, Node + Mocha, a JUnit-only project) run
    the whole pipeline in CI with a recorded stand-in for `claude`; one real run per release.
 7. **Release.** npm publish with provenance, GitHub release, README, semver, CHANGELOG; the plugin declares the
    versions it supports. Optionally a self-contained binary that needs no Node install, built with Node's
    single-executable apps or `bun build --compile`.
+
+### Ported from production-retail-and-wholesale `main` (2026-10-19)
+Its PRs merged after `sdlc-as-package` branched (#92, #94, #97–#100), applied here:
+- #94 (never signal pid 0 or a finished run's pid): already in `src/runs` (`alive` takes positive pids only; stop and
+  discard signal only a record in state running).
+- #97: Plan gets WebFetch, WebSearch and mcp__context7; every stage gets read-only commands (`READ_ONLY_COMMANDS`) and
+  the GET-only `ai-sdlc-helper fetch` (replacing `sdlc-fetch.sh`); Implement installs the plan's exact `## Dependencies`
+  first (`src/pipeline/deps.ts`, any package manager, the suite's package); prompts and skills state the rule.
+- #98: a Test repair claim citing the plan is justified; `SDLC_BASE` was already kept out of the pipeline; a refused
+  command line is named by its first part no allow rule covers, and is not asked again once allowed.
+- #99: a usage limit is waited out (`SDLC_LIMIT_RETRY`, `SDLC_LIMIT_MAX_WAIT`) with a `note` in status.json.
+- `changes mark` credits a stage with an earlier stage's file it changed and committed.
+- #92 (husky lint in that repo) and the pane parts of #98–#100 (phase 5) are not code in this package.
 
 ## Still open
 

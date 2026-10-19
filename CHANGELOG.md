@@ -10,6 +10,23 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
 
 ## [Unreleased]
 
+### Added
+
+- **New dependencies are installed by the pipeline.** The Plan stage may read a library's published docs (WebFetch,
+  WebSearch, context7, or the new `ai-sdlc-helper fetch <https-url>`, a GET-only read from package-doc hosts) and
+  lists exact versions under `## Dependencies` in the plan; Implement installs them first, without install scripts.
+- **Usage limits are waited out.** An agent that hits the account's usage limit runs again after the reset
+  (`SDLC_LIMIT_RETRY`, `SDLC_LIMIT_MAX_WAIT`); `status.json` has a `note` meanwhile.
+- **Read-only commands for every stage agent** (`cat`, `grep`, `git show`, `npm view` and the like), so harmless reads
+  are not refused.
+
+### Fixed
+
+- A Test repair claim that cites the plan is accepted.
+- A refused command line such as `cd x; sed …` asks for the rule of the part that was not allowed (`sed`), not an
+  allowed one, and is not asked again once allowed.
+- The files per stage credit a stage with an earlier stage's file that it changed and committed.
+
 ## [0.1.0] - Unreleased
 
 The first release: the SDLC pipeline from `production-retail-and-wholesale`, rewritten in TypeScript as a global

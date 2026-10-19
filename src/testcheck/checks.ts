@@ -81,7 +81,7 @@ export function precheck(k: Keys, nowJson: string, issuesFile: string, max = 3):
   if (cl.length > max) errs.push(`${cl.length} tests claimed wrong; the limit is ${max}`);
   for (const key of keys) if (!all.has(key)) errs.push(`claimed test does not exist: ${key}`);
   for (const key of failed) if (!keys.has(key)) errs.push(`failing test is NOT claimed as a test defect (source bug, not test repair): ${key}`);
-  for (const x of cl) if (!/(spec|decision|round|S-R|isolat|mock)/i.test(x.why)) errs.push(`claim gives no spec/decision/isolation justification: ${x.key}`);
+  for (const x of cl) if (!/(spec|plan|decision|round|S-R|isolat|mock)/i.test(x.why)) errs.push(`claim gives no spec/plan/decision/isolation justification: ${x.key}`);
   return errs;
 }
 

@@ -12,6 +12,7 @@ import { resultsAt, resultsNow, successCheck, testsPass } from './gates.js';
 import { renderPrompt } from './prompts.js';
 import { resumeCommand, resumeHint } from './hints.js';
 import { ship } from './ship.js';
+import { installDeps } from './deps.js';
 
 const short = (sha: string) => sha.slice(0, 7);
 const redPattern = (slug: string) => `^test(${slug}): add failing tests`;
@@ -126,6 +127,8 @@ export async function implementStage(ctx: Ctx): Promise<boolean> {
   const issues = at(ctx, `${ctx.docs}/test-issues.md`);
   if (exists(issues)) ctx.out('WARNING: test-issues.md exists and will be deleted; use FROM=test-repair to resume at Test repair');
   fs.rmSync(issues, { force: true });
+  installDeps(ctx);
+  await tick();
   // A resumed run never trusts a previous run's test log: the first attempt reads one from this run.
   if (ctx.fromN === 4) { testsPass(ctx); await tick(); }
   for (let i = 1; i <= maxAttempts; i++) {
