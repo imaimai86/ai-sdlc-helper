@@ -5,6 +5,31 @@ why, the way around it today, and the suggested change (with its status).
 
 ## 2026-10-19: web app on property-listing-al-badri (a repository with one Node package below the root)
 
+### 7. `--test-dir` refuses the package folder itself
+- **Seen:** `suggest --test-dir ./management-portal/mobile-app` → "no package.json in management-portal or above it; the
+  test folder must be inside a Node package (packages here: management-portal/mobile-app)", although that folder is the
+  package. `suggest management-portal/mobile-app` (the folder as the argument) works.
+- **Why:** `--test-dir` names the folder the tests go in, inside a package; `locateTestDir` looks for `package.json`
+  from that folder's parent upwards, so the package folder itself is never checked. The hint "pass --test-dir <folder
+  inside one of them>" in finding 2's message invites exactly this mistake.
+- **Today:** give the package folder as the argument (`suggest management-portal/mobile-app`), and `--test-dir` only
+  for a tests folder inside it (`--test-dir management-portal/mobile-app/__tests__`).
+- **Suggested:** accept the package folder as `--test-dir` (use the package's default tests folder), and make the
+  "Packages below" hint name the argument form first: "run: suggest management-portal/mobile-app". Status: open.
+
+### 8. `suggest` recommends Vitest with jsdom for what may be a React Native app
+- **Seen:** for `management-portal/mobile-app` (TypeScript, "uses react"): "1. vitest (recommended) … component tests
+  with jsdom and Testing Library (react)", the only suggestion.
+- **Why:** `suggest` knows web frameworks (react, vue, svelte …) but not React Native or Expo: it does not look at the
+  `react-native` or `expo` dependencies. React Native components do not render in jsdom; the usual setup is Jest with
+  the `jest-expo` or `react-native` preset and `@testing-library/react-native`.
+- **Today:** check `grep -E '"(react-native|expo)"' management-portal/mobile-app/package.json`. A web React app: the
+  Vitest suggestion is right (`init-tests management-portal/mobile-app --runner vitest --yes --dry-run`, then without
+  `--dry-run`). A React Native or Expo app: do not apply it; set up Jest with `jest-expo` (or the `react-native`
+  preset) in the app and add the suite to `sdlc.config.json` by hand (finding 3).
+- **Suggested:** detect React Native and Expo in `describeProject`; suggest Jest with the right preset and
+  `@testing-library/react-native`, and list Vitest under "Not suggested" with the reason. Status: open.
+
 ### 1. The doctor checks on a project card go stale after Register
 - **Seen:** after **Register** wrote `Docs/backlog/index.md`, the card still said "backlog index · Docs/backlog/index.md
   is missing"; the Register output on the same screen said it had written it.
