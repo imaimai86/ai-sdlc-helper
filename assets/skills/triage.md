@@ -1,5 +1,5 @@
 
-Turn this report into backlog items that `./scripts/sdlc.sh <slug>` can run with few or no question rounds. Do not write source code, do not commit, and do not start the pipeline.
+Turn this report into backlog items that the SDLC pipeline (`ai-sdlc-helper start <slug>`) can run with few or no question rounds. Do not write source code, do not commit, and do not start the pipeline.
 
 ## 1. Understand and split
 - If the report holds several independent problems or features, make one item for each.
@@ -8,7 +8,7 @@ Turn this report into backlog items that `./scripts/sdlc.sh <slug>` can run with
 - Never paste secrets (passwords, tokens, full connection strings) into any file. Describe them by name only.
 
 ## 2. Check for duplicates
-- Read `{{BACKLOG_DIR}}/index.md` and `Engineering/bugs.md`, and list the folders under `{{BACKLOG_DIR}}/`.
+- Read `{{BACKLOG_DIR}}/index.md` (and the project's own bug list, if it keeps one), and list the folders under `{{BACKLOG_DIR}}/`.
 - If an item already covers the report, tell the user which one and stop for that item. Do not create a second one.
 
 ## 3. Ground it in the code
@@ -18,8 +18,8 @@ Turn this report into backlog items that `./scripts/sdlc.sh <slug>` can run with
 
 ## 4. Decide what you can, ask only what you cannot
 The Spec stage stops and asks whenever the brief is ambiguous, so every unanswered point costs a full pipeline round. Settle these in the brief, using the project's existing conventions as the default:
-- Exact behaviour and the error status and body for every failure (the repo uses `{ "error": "<message>" }`).
-- Validation order (400 first, then 404, then 409), and what a failed request must not change.
+- Exact behaviour and the error for every failure, in the format the project already uses (find it in the code: an HTTP status and body, an exception type, an exit code).
+- The order in which input is checked (for an API: bad input, then not found, then conflict), and what a failed request must not change.
 - Scope: which files and endpoints are in, and what is explicitly out.
 - Tests: where they live ({{TEST_FILES}}, mirroring the code layout) and the cases to cover. Every case must run the real code. Never plan a test that reads, greps or asserts on documentation (README.md, CLAUDE.md, AGENTS.md, any *.md); documentation goes under `## Docs` and is checked in the Review stage.
 - Docs: which documentation files (README, API or schema docs, AGENTS.md) change.
@@ -38,7 +38,7 @@ Create `{{BACKLOG_DIR}}/<slug>/brief.md` in exactly this shape:
 
 Type: bug | feature
 Priority: P0 (security or data loss) | P1 (blocks use) | P2 (normal) | P3 (nice to have)
-Source: <where this came from: report, error text without secrets, Engineering/bugs.md entry, link>
+Source: <where this came from: report, error text without secrets, bug list entry, link>
 
 ## Problem
 <current behaviour and why it is wrong, or the need for a feature>
@@ -71,25 +71,10 @@ Then add one line to `{{BACKLOG_DIR}}/index.md`, in this exact format (the pipel
 - [ ] `<slug>` - <Bug|Feature>: <short title>
 ```
 
-The pipeline works top-down, so put P0 and P1 items above P2 and P3, and keep items of equal priority in the order they were reported. Create the file if it does not exist, using the header that `{{BACKLOG_DIR}}/index.md` already has on `main`.
+The pipeline works top-down, so put P0 and P1 items above P2 and P3, and keep items of equal priority in the order they were reported. Create the file if it does not exist, with a `# Backlog` heading.
 
 ## 6. Report back
-Reply with a short table: slug, type, priority, one-line summary, and any open questions. Then give the command to run it: `./scripts/sdlc.sh <slug>`. Refer to SDLC stages by name (Spec, Plan, Red tests, Implement, Review, Ship), never by number.
+Reply with a short table: slug, type, priority, one-line summary, and any open questions. Then give the command to run it: `ai-sdlc-helper start <slug>`. Refer to SDLC stages by name (Spec, Plan, Red tests, Implement, Review, Ship), never by number.
 
-## 7. Publish the triaged items to `triage/<slug>` (MANDATORY offer, only with the user's confirmation)
-Triage writes files and never commits or pushes on its own. A brief that is not in git is easy to lose, and the pipeline starts from whatever branch and working tree happen to be checked out (a backlog line without its brief, or a brief on a dirty branch, breaks `./scripts/sdlc.sh`). So every triage run ends by asking the user to confirm publishing, and only publishes after an explicit yes.
-
-1. Work out exactly what would be published and show it first:
-   - The files: each new or changed `{{BACKLOG_DIR}}/<slug>/brief.md` and `{{BACKLOG_DIR}}/index.md`. Nothing else. Run `git status --short`, name every other uncommitted file, and say it will be left out (never `git add -A` or `git add .`).
-   - The branch, created from the latest `main`: `triage/<slug>`, where `<slug>` is the feature-or-bug slug. For several items in one run use `triage/<slug-of-the-first-item>-and-<n>-more`. If a local or remote branch with that name already exists, do not reuse, reset or overwrite it: tell the user and propose `triage/<slug>-2`.
-   - The exact commands:
-     ```bash
-     git fetch origin && git switch -c triage/<slug> origin/main
-     git add {{BACKLOG_DIR}}/index.md {{BACKLOG_DIR}}/<slug>/brief.md
-     git commit -m "docs(backlog): triage <slug>"
-     git push -u origin triage/<slug>
-     ```
-2. Ask for confirmation with AskUserQuestion, with these options: "Commit and push to triage/<slug> (Recommended)", "Commit locally only, do not push", "Do nothing". Do not run any git write command (switch, add, commit, push) before the answer. A reply that is not an explicit choice means "Do nothing".
-3. If the answer is to push: run the commands above, in that order, and stop at the first failure. Never use `--force`. Then report the branch name, the commit hash and the list of files committed, and offer to open the PR with `gh pr create` (do not open it unless the user says yes).
-4. If the working tree has unrelated uncommitted changes, check that `git switch -c` carries them without conflict, and tell the user they stay uncommitted on the new branch. If the switch would fail or overwrite something, stop and ask instead of stashing, resetting or discarding anything.
-5. After publishing, remind the user that `./scripts/sdlc.sh <slug>` will start from the branch that is checked out, and suggest `git switch main && git pull` (or merging the triage branch) first.
+## 7. Do not commit
+Leave the new files uncommitted and do not switch branches. The person commits them (`ai-sdlc-helper triage` offers to commit exactly the new briefs and `{{BACKLOG_DIR}}/index.md` when you finish). A run starts from a committed base, so remind them that the items must be committed before `ai-sdlc-helper start <slug>`.

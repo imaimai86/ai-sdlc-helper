@@ -40,3 +40,4 @@ export { ship, type ShipOptions } from './pipeline/ship.js';
 export { STAGE_DEFAULTS, resolveProvider, stageModel, providerEnv, type Provider } from './pipeline/models.js';
 export { FROM_STAGES, AGENT_STAGES, type From, type AgentStage } from './pipeline/context.js';
 export type { StatusLine } from './pipeline/status.js';
+export { triage, triagePrompt, indexItems, commitTriage, type RunClaude, type TriageResult } from './triage.js';
