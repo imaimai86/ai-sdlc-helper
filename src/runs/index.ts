@@ -320,7 +320,8 @@ export async function discard(ctx: RunContext, slug: string, opts: DiscardOption
   if (!hasWt && !tip && !rec && !exists(wt)) return fail(1, `Nothing to discard for ${slug}`);
   const base = rec?.base || pickBase(ctx);
   const ahead = tip && base ? Number(git(ctx.root, ['rev-list', '--count', `${base}..${branch}`], ctx.env).stdout.trim() || 0) : 0;
-  const dirty = hasWt ? git(wt, ['status', '--porcelain', '--untracked-files=all'], ctx.env).stdout.split('\n').filter(Boolean).length : 0;
+  // --no-optional-locks: a status read must not take index.lock while the pipeline may be committing in this worktree.
+  const dirty = hasWt ? git(wt, ['--no-optional-locks', 'status', '--porcelain', '--untracked-files=all'], ctx.env).stdout.split('\n').filter(Boolean).length : 0;
   const out = [`Discard ${slug}: worktree ${wt}, branch ${branch} (${ahead} commit(s) not in ${base || 'the base'}, ${dirty} uncommitted file(s)), run record`];
   if (!opts.yes) return { code: 6, out: [...out, 'Nothing deleted. Run again with --yes to discard it.'], err: [] };
   if (opts.stop && isRunning(rec) && !await stopRun(ctx, slug, rec!)) return fail(1, `could not stop ${slug} (pid ${rec!.pid})`);
@@ -388,7 +389,8 @@ export function watchFrame(ctx: RunContext, slug: string, dir: string): string[]
     else if (rec.state === 'exited') out.push(`run: finished, exit code ${rec.exit_code}${rec.message ? ` (${rec.message})` : ''}`);
     else if (rec.state === 'running' && !alive(rec.pid)) out.push('run: process has gone (stopped without finishing)');
   }
-  const st = git(dir, ['status', '--short'], ctx.env);
+  // --no-optional-locks: a status read must not take index.lock while the pipeline may be committing in this worktree.
+  const st = git(dir, ['--no-optional-locks', 'status', '--short'], ctx.env);
   out.push(...(st.stdout + st.stderr).split('\n').filter(Boolean).slice(0, 15));
   const runOut = path.join(logs, 'run.out');
   if (exists(runOut)) out.push('--- run.out (last 5 lines)', ...tailLines(runOut, 5));
