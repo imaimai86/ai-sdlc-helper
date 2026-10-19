@@ -12,6 +12,9 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
 
 ### Added
 
+- **`ai-sdlc-helper triage`** turns a report into backlog items: a Claude agent follows the shipped triage prompt
+  (interactive, so it can ask; or headless with `--print`), writes each `brief.md` and index line, and the tool lists
+  the new items and commits exactly those files on the current branch when asked (`--commit`). It never pushes.
 - **New dependencies are installed by the pipeline.** The Plan stage may read a library's published docs (WebFetch,
   WebSearch, context7, or the new `ai-sdlc-helper fetch <https-url>`, a GET-only read from package-doc hosts) and
   lists exact versions under `## Dependencies` in the plan; Implement installs them first, without install scripts.
@@ -34,6 +37,8 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
   used the main working tree's settings (its `git.base`, backlog and links were ignored, so runs started from the wrong
   branch); saved permission rules went there too. A command run inside a pipeline's own worktree still maps back to the
   checkout that started it (recorded as `root` in the run record).
+- The shipped `triage` and `sdlc` skills no longer refer to production-retail's scripts (`scripts/sdlc.sh`,
+  `sdlc-mod.sh`, `Engineering/bugs.md`) or its API conventions, and triage no longer pushes a branch itself.
 - A Test repair claim that cites the plan is accepted.
 - A refused command line such as `cd x; sed …` asks for the rule of the part that was not allowed (`sed`), not an
   allowed one, and is not asked again once allowed.

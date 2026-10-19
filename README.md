@@ -35,10 +35,16 @@ ai-sdlc-helper add                  # register the project: shows the settings, 
 ai-sdlc-helper doctor --run-tests   # check Node, git, claude, the settings, the code indexer, the backlog; run the tests once
 ```
 
-Add an item to the backlog (`Docs/backlog/index.md` unless `backlogDir` says otherwise), one line per item:
+Turn a bug report or feature request into a backlog item. A Claude agent reads the code, asks you what it cannot settle, and writes `Docs/backlog/<slug>/brief.md` and the line in `Docs/backlog/index.md` (`backlogDir` changes the folder); then the tool lists the new items and offers to commit them:
+
+```bash
+ai-sdlc-helper triage --report "Add a /health endpoint that reports the database status"
+```
+
+`--file <path>` reads the report from a file, `--print` runs the agent without questions (unknowns go under "Open questions" in the brief), and `--commit` commits without asking. You can also write the index line and the brief yourself:
 
 ```markdown
-- [ ] `add-health-check` Add a /health endpoint that reports the database status
+- [ ] `add-health-check` - Feature: a /health endpoint that reports the database status
 ```
 
 Then run its pipeline in its own worktree and branch, and follow it:
@@ -102,6 +108,8 @@ Usage: ai-sdlc-helper <command> [dir] [options]
   code-search [dir] [--list | --use <name|auto|none>]
                                    the code indexer the agents search with (graft, graphify, your own) or none
   skill <name> [dir]               a skill's text for this project
+  fetch <https-url>                one GET request, the body on stdout: the web read stage agents may run (hosts:
+                                   the npm registry, unpkg, jsDelivr, GitHub; AI_SDLC_HELPER_FETCH_HOSTS overrides)
   add [dir] [--name <name>] [--worktree-base <dir>] [--max-parallel <n>] [--yes]
                                    register a project (its git root): shows the settings, offers sdlc.config.json and a backlog index
   list [--json]                    the registered projects
@@ -156,6 +164,12 @@ Usage: ai-sdlc-helper <command> [dir] [options]
                                    run the SDLC pipeline for a backlog item (default: the first pending one) in the
                                    checkout (default: the current folder); FROM=<stage> in the environment works too.
                                    Exit 0 shipped, 1 failed, 2 paused (questions to answer, refused actions to decide)
+  triage [dir] [--report "<text>" | --file <path>] [--print] [--commit] [--model <model>]
+                                   turn a report (a bug, a feature request, an error) into backlog items: a Claude agent
+                                   reads the code, asks what it cannot settle, and writes <backlog>/<slug>/brief.md and
+                                   the index line; then the new items are listed and, on a yes or --commit, committed on
+                                   the current branch (never pushed). --print runs the agent headless (no questions:
+                                   unknowns go under "Open questions"), also when there is no terminal
   help, --help, --version
 ```
 <!-- help:end -->
