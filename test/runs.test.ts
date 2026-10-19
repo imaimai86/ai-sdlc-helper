@@ -4,7 +4,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterAll, afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { main } from '../src/cli/main.js';
-import { alive, killTree } from '../src/runs/records.js';
+import { alive, killTree, projectRoot } from '../src/runs/records.js';
+import { repoRulesFile } from '../src/permissions/index.js';
 import { pipelineArgv } from '../src/runs/index.js';
 import { tmp as mkTmp } from './helpers.js';
 
@@ -533,7 +534,7 @@ describe('changes', () => {
 });
 
 describe('permit and --project', () => {
-  test('permit decides in the run\'s worktree, also from another checkout; always saves the rule in the main working tree', async () => {
+  test('permit decides in the run\'s worktree, also from another checkout; always saves the rule in the run\'s project (an older record: the main working tree)', async () => {
     const runner = path.join(tmp, 'runner');
     git(repo, 'worktree', 'add', '-q', '--detach', runner, 'main');
     const wt = path.join(tmp, 'wts', 'alpha');
@@ -575,3 +576,48 @@ describe('the pipeline command', () => {
     expect(pipelineArgv('alpha', undefined, { AI_SDLC_HELPER_PIPELINE_CMD: 'my-pipeline --x' })).toEqual(['sh', '-c', 'my-pipeline --x "$@"', 'sh', 'alpha']);
   });
 });
+
+describe('a project that is one worktree of a bigger repository', () => {
+  test('uses its own settings (base, backlog item), and a run worktree maps back to it, also for saved rules', async () => {
+    // another checkout of the same repository, on its own branch, with settings that start runs from that branch
+    const trial = path.join(tmp, 'trial');
+    git(repo, 'worktree', 'add', '-q', '-b', 'trial', trial, 'main');
+    fs.writeFileSync(path.join(trial, 'sdlc.config.json'), JSON.stringify({ ...SETTINGS, git: { base: 'trial' } }));
+    fs.mkdirSync(path.join(trial, 'Docs/backlog/trial-only'), { recursive: true });
+    fs.writeFileSync(path.join(trial, 'Docs/backlog/trial-only/brief.md'), '# trial-only\n');
+    git(trial, 'add', '-A');
+    git(trial, 'commit', '-q', '-m', 'trial settings');
+    const trialTip = git(trial, 'rev-parse', 'HEAD');
+
+    const r = await cli(['start', 'trial-only'], {}, trial);
+    expect([r.status, r.stderr]).toEqual([0, '']);
+    const rec = await finished('trial-only');
+    expect(rec).toMatchObject({ base: 'trial', root: trial, exit_code: '0' });
+    const wt = path.join(wts, 'trial-only');
+    expect(git(wt, 'merge-base', '--is-ancestor', trialTip, 'HEAD')).toBe('');
+
+    // from inside the run's worktree, commands work on the checkout that started it, not on the main working tree
+    expect(projectRoot(wt)).toBe(trial);
+    expect(projectRoot(trial)).toBe(trial);
+    expect(projectRoot(repo)).toBe(repo);
+    expect(repoRulesFile(wt)).toBe(path.join(trial, '.claude/sdlc-permissions.json'));
+    const st = await cli(['status'], {}, wt);
+    expect(st.stdout).toMatch(/exited +trial-only/);
+  });
+});
+
+describe('runs of other checkouts of the repository', () => {
+  test('status and changes --all list this project\'s runs only; a record without a root belongs to the main working tree', async () => {
+    fs.mkdirSync(reg(), { recursive: true });
+    const other = path.join(tmp, 'other-checkout');
+    git(repo, 'worktree', 'add', '-q', '-b', 'other', other, 'main');
+    fs.writeFileSync(path.join(reg(), 'mine.json'), JSON.stringify({ slug: 'mine', worktree: '', pid: 0, state: 'exited', exit_code: '0', root: repo }));
+    fs.writeFileSync(path.join(reg(), 'legacy.json'), JSON.stringify({ slug: 'legacy', worktree: '', pid: 0, state: 'exited', exit_code: '2' }));
+    fs.writeFileSync(path.join(reg(), 'theirs.json'), JSON.stringify({ slug: 'theirs', worktree: '', pid: 0, state: 'exited', exit_code: '0', root: other }));
+    const slugs = (out: string) => out.split('\n').filter(Boolean).map(l => l.trim().split(/\s+/)[1]).sort();
+    expect(slugs((await cli(['status'])).stdout)).toEqual(['legacy', 'mine']);
+    expect(slugs((await cli(['status'], {}, other)).stdout)).toEqual(['theirs']);
+    expect(JSON.parse((await cli(['status', '--json'], {}, other)).stdout).map((r: { slug: string }) => r.slug)).toEqual(['theirs']);
+  });
+});
+

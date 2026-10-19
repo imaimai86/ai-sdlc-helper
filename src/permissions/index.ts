@@ -4,7 +4,7 @@
 // a path or command.
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { projectRoot } from '../runs/records.js';
 
 /** The repository's saved allow rules, in its main working tree. */
 export const REPO_RULES = '.claude/sdlc-permissions.json';
@@ -59,11 +59,17 @@ export function commandParts(command: string): string[] {
   return parts.map(x => x.trim()).filter(Boolean);
 }
 
-/** The rule for one command: its first one or two words. */
+/** Package managers whose `run`/`exec` would allow every script: their rule names the script too. */
+const SCRIPT_RUNNERS = ['npm', 'pnpm', 'yarn', 'bun'];
+
+/** The rule for one command: its first one or two words; for `npm run <script>` and the like, the first three. */
 function commandRule(command: string): string {
   const words = command.split(/\s+/);
   const head = words[0] && /^[\w./-]+$/.test(words[0]) ? [words[0]] : [];
   if (head.length && words[1] && /^[a-z][\w-]*$/.test(words[1])) head.push(words[1]);
+  if (head.length === 2 && SCRIPT_RUNNERS.includes(words[0]) && ['run', 'run-script', 'exec'].includes(words[1]) && words[2] && /^[\w:.@/-]+$/.test(words[2]) && !words[2].startsWith('-')) {
+    head.push(words[2]);
+  }
   return head.length ? `Bash(${head.join(' ')}:*)` : 'Bash';
 }
 
@@ -202,11 +208,12 @@ export function decide(stateFile: string, which: string, choice: string, repoFil
   return state.pending.length;
 }
 
-/** The repository's saved rules file: in the main working tree, whichever checkout <root> is. */
+/**
+ * The project's saved rules file: in the checkout the project lives in, also when <root> is one of its pipeline runs'
+ * worktrees (see projectRoot), so every run of the project sees the same rules.
+ */
 export function repoRulesFile(root: string): string {
-  const r = spawnSync('git', ['-C', root, 'worktree', 'list', '--porcelain'], { encoding: 'utf8' });
-  const main = r.status === 0 ? (r.stdout.split('\n').find(l => l.startsWith('worktree ')) || '').slice('worktree '.length) : '';
-  return path.join(main || root, REPO_RULES);
+  return path.join(projectRoot(root), REPO_RULES);
 }
 
 /**

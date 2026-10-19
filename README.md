@@ -35,10 +35,16 @@ ai-sdlc-helper add                  # register the project: shows the settings, 
 ai-sdlc-helper doctor --run-tests   # check Node, git, claude, the settings, the code indexer, the backlog; run the tests once
 ```
 
-Add an item to the backlog (`Docs/backlog/index.md` unless `backlogDir` says otherwise), one line per item:
+Turn a bug report or feature request into a backlog item. A Claude agent reads the code, asks you what it cannot settle, and writes `Docs/backlog/<slug>/brief.md` and the line in `Docs/backlog/index.md` (`backlogDir` changes the folder); then the tool lists the new items and offers to commit them:
+
+```bash
+ai-sdlc-helper triage --report "Add a /health endpoint that reports the database status"
+```
+
+`--file <path>` reads the report from a file, `--print` runs the agent without questions (unknowns go under "Open questions" in the brief), and `--commit` commits without asking. You can also write the index line and the brief yourself:
 
 ```markdown
-- [ ] `add-health-check` Add a /health endpoint that reports the database status
+- [ ] `add-health-check` - Feature: a /health endpoint that reports the database status
 ```
 
 Then run its pipeline in its own worktree and branch, and follow it:
@@ -177,6 +183,12 @@ Usage: ai-sdlc-helper <command> [dir] [options]
                                    run the SDLC pipeline for a backlog item (default: the first pending one) in the
                                    checkout (default: the current folder); FROM=<stage> in the environment works too.
                                    Exit 0 shipped, 1 failed, 2 paused (questions to answer, refused actions to decide)
+  triage [dir] [--report "<text>" | --file <path>] [--print] [--commit] [--model <model>]
+                                   turn a report (a bug, a feature request, an error) into backlog items: a Claude agent
+                                   reads the code, asks what it cannot settle, and writes <backlog>/<slug>/brief.md and
+                                   the index line; then the new items are listed and, on a yes or --commit, committed on
+                                   the current branch (never pushed). --print runs the agent headless (no questions:
+                                   unknowns go under "Open questions"), also when there is no terminal
   ui [--port <n>] [--no-open]      the local web app on 127.0.0.1 (default port 4477, the next free one if taken): the
                                    board, runs, questions, refused actions, backlog and settings; prints its URL and
                                    opens it unless --no-open. Runs go on when it stops (Ctrl-C).

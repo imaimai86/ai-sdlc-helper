@@ -17,6 +17,9 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
   resume, restart, stop and discard, per-run environment (model and effort per stage), new backlog items, projects and
   doctor, a command palette, light and dark themes. It lives in `web/` and uses the engine only through its public entry.
 - **`runView`, `boardView`, `answerQuestions`, `addBacklogItem`** in the library, for monitors of the pipeline.
+- **`ai-sdlc-helper triage`** turns a report into backlog items: a Claude agent follows the shipped triage prompt
+  (interactive, so it can ask; or headless with `--print`), writes each `brief.md` and index line, and the tool lists
+  the new items and commits exactly those files on the current branch when asked (`--commit`). It never pushes.
 - **New dependencies are installed by the pipeline.** The Plan stage may read a library's published docs (WebFetch,
   WebSearch, context7, or the new `ai-sdlc-helper fetch <https-url>`, a GET-only read from package-doc hosts) and
   lists exact versions under `## Dependencies` in the plan; Implement installs them first, without install scripts.
@@ -27,6 +30,20 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
 
 ### Fixed
 
+- The run logs (`<backlog>/<slug>/logs/`) are never committed and never show in `git status`: the folder ignores
+  itself. A project without its own ignore entry had them in the Red tests and feature commits.
+- A refused `npm run <script>` (and pnpm, yarn, bun `run`/`exec`) asks for a rule naming that script, not one that
+  allows every script.
+- `status` and `changes --all` list only this project's runs; the run registry is shared by every checkout of the
+  repository.
+- When graft (or graphify) is installed but the project has no index yet, the warning says to build the index, not
+  to install the tool.
+- The run controls work on the checkout they are run in. A project that is one worktree of a bigger repository
+  used the main working tree's settings (its `git.base`, backlog and links were ignored, so runs started from the wrong
+  branch); saved permission rules went there too. A command run inside a pipeline's own worktree still maps back to the
+  checkout that started it (recorded as `root` in the run record).
+- The shipped `triage` and `sdlc` skills no longer refer to production-retail's scripts (`scripts/sdlc.sh`,
+  `sdlc-mod.sh`, `Engineering/bugs.md`) or its API conventions, and triage no longer pushes a branch itself.
 - A Test repair claim that cites the plan is accepted.
 - A refused command line such as `cd x; sed …` asks for the rule of the part that was not allowed (`sed`), not an
   allowed one, and is not asked again once allowed.

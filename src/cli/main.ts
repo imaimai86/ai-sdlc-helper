@@ -18,6 +18,8 @@ import { PROJECT_COMMANDS, PROJECT_FLAGS, PROJECT_USAGE, PROJECT_VALUED, project
 import { RUNNER_COMMANDS, RUNNER_FLAGS, RUNNER_USAGE, RUNNER_VALUED, runners } from './runners.js';
 import { RUNS_COMMANDS, RUNS_FLAGS, RUNS_USAGE, RUNS_VALUED, runs } from './runs.js';
 import { PIPELINE_COMMANDS, PIPELINE_FLAGS, PIPELINE_USAGE, PIPELINE_VALUED, pipeline } from './pipeline.js';
+import { TRIAGE_COMMANDS, TRIAGE_FLAGS, TRIAGE_USAGE, TRIAGE_VALUED, triageCommand } from './triage.js';
+import type { RunClaude } from '../triage.js';
 import { UI_COMMANDS, UI_FLAGS, UI_USAGE, UI_VALUED, ui } from './ui.js';
 
 export interface Io {
@@ -27,11 +29,13 @@ export interface Io {
   ask?: (question: string) => Promise<string>;
   env?: NodeJS.ProcessEnv;
   cwd?: string;
+  /** Replaces the claude process of `triage` (tests). */
+  runClaude?: RunClaude;
 }
 
-const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'fetch', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS, ...TOOL_COMMANDS, ...RUNS_COMMANDS, ...PIPELINE_COMMANDS, ...UI_COMMANDS];
-const VALUED = ['--runner', '--language', '--test-dir', '--use', ...PROJECT_VALUED, ...RUNNER_VALUED, ...TOOL_VALUED, ...RUNS_VALUED, ...PIPELINE_VALUED, ...UI_VALUED];
-const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...PROJECT_FLAGS, ...RUNNER_FLAGS, ...TOOL_FLAGS, ...RUNS_FLAGS, ...PIPELINE_FLAGS, ...UI_FLAGS];
+const COMMANDS = ['detect', 'show', 'layout', 'node', 'suggest', 'init-tests', 'code-search', 'skill', 'fetch', 'help', ...PROJECT_COMMANDS, ...RUNNER_COMMANDS, ...TOOL_COMMANDS, ...RUNS_COMMANDS, ...PIPELINE_COMMANDS, ...TRIAGE_COMMANDS, ...UI_COMMANDS];
+const VALUED = ['--runner', '--language', '--test-dir', '--use', ...PROJECT_VALUED, ...RUNNER_VALUED, ...TOOL_VALUED, ...RUNS_VALUED, ...PIPELINE_VALUED, ...TRIAGE_VALUED, ...UI_VALUED];
+const FLAGS = ['--json', '--yes', '--dry-run', '--no-install', '--list', '--help', '--version', ...PROJECT_FLAGS, ...RUNNER_FLAGS, ...TOOL_FLAGS, ...RUNS_FLAGS, ...PIPELINE_FLAGS, ...TRIAGE_FLAGS, ...UI_FLAGS];
 
 export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
 
@@ -52,6 +56,7 @@ export const USAGE = `Usage: ai-sdlc-helper <command> [dir] [options]
 ${PROJECT_USAGE}
 ${RUNNER_USAGE}${TOOL_USAGE}${RUNS_USAGE}
 ${PIPELINE_USAGE}
+${TRIAGE_USAGE}
 ${UI_USAGE}
   help, --help, --version`;
 
@@ -217,6 +222,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
   if (RUNNER_COMMANDS.includes(cmd)) return runners(argv, io);
   if (RUNS_COMMANDS.includes(cmd)) return runs(a, io);
   if (PIPELINE_COMMANDS.includes(cmd)) return pipeline(argv, VALUED, io);
+  if (TRIAGE_COMMANDS.includes(cmd)) return triageCommand(a, io);
   if (UI_COMMANDS.includes(cmd)) return ui(argv, VALUED, io);
   const languageArg = a.value('--language');
   if (languageArg !== undefined && !LANGUAGES.includes(languageArg as Language)) { io.err(`ERROR: --language must be javascript or typescript\n\n${USAGE}`); return 2; }

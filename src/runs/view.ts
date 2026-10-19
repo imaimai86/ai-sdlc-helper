@@ -6,8 +6,8 @@ import path from 'node:path';
 import { exists } from '../util.js';
 import { backlogItems, type BacklogItem } from '../backlog/index.js';
 import { loadState, type Ask } from '../permissions/index.js';
-import { alive, readRecord, recordedSlugs, runState, type RunRecord } from './records.js';
-import { runChanges, runWorktree, type RunContext } from './index.js';
+import { alive, readRecord, runState, type RunRecord } from './records.js';
+import { projectSlugs, runChanges, runWorktree, type RunContext } from './index.js';
 
 export type ViewState = 'not started' | 'running' | 'paused' | 'done' | 'failed' | 'interrupted' | 'stopped' | 'refused';
 
@@ -219,10 +219,10 @@ export interface BoardView {
   running: number;
 }
 
-/** The board: the backlog and a card for every recorded run. */
+/** The board: the backlog and a card for every run of this checkout (see projectSlugs). */
 export function boardView(ctx: RunContext, opts: { changes?: boolean } = {}): BoardView {
   const backlog = backlogItems({ root: ctx.root, backlogDir: ctx.backlogDir, branchPrefix: ctx.branchPrefix });
-  const runs = recordedSlugs(ctx.reg).map((slug): RunCard => {
+  const runs = projectSlugs(ctx).map((slug): RunCard => {
     const v = runView(ctx, slug, { changes: opts.changes, tailLines: 0 });
     return {
       slug, state: v.state, stage: v.stage, agent: v.agent, model: v.model, effort: v.effort, note: v.note, updated: v.updated,

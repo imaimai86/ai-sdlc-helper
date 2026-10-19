@@ -51,6 +51,10 @@ describe('choosing a code indexer', () => {
     expect(nothing).toMatchObject({ codeSearch: 'none', indexer: null });
     expect(nothing.warning).toBe('no code indexer is available; code search uses Grep and Glob. A code indexer is recommended: '
       + 'graft (npm install -g @nanonets/graft, then graft build), or graphify (uv tool install graphifyy (or pipx install graphifyy), then build the graph with /graphify . in Claude Code)');
+
+    // graft installed but the project has no index yet: build it, not install it
+    expect(codeSearchFor(project(), {}, pathWith('graft')).warning).toBe('no code indexer is available; code search uses Grep and Glob. '
+      + 'A code indexer is recommended: graft (installed; build its index: graft build), or graphify (uv tool install graphifyy (or pipx install graphifyy), then build the graph with /graphify . in Claude Code)');
   });
 
   test('a named indexer is used when available, else Grep and Glob with how to set it up', async () => {

@@ -25,6 +25,8 @@ export interface RunRecord {
   /** The ref the branch was started from (the changes are counted against it). */
   base?: string;
   from?: string;
+  /** The checkout the run was started from: its settings, run controls and saved rules belong to it. */
+  root?: string;
 }
 
 /** Local time as the records and status.json write it: 2026-10-17T09:30:00. */
@@ -122,4 +124,32 @@ export function runState(rec: Partial<RunRecord>): string {
   if (rec.interrupted === true) return 'interrupted';
   if (rec.state === 'running') return alive(rec.pid) ? 'running' : 'stopped';
   return rec.state || 'unknown';
+}
+
+const realOr = (p: string): string => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+
+/** The main working tree of the repository holding <dir> (the first in `git worktree list`), else <dir>. */
+export function mainTree(dir: string, env: NodeJS.ProcessEnv = process.env): string {
+  const r = spawnSync('git', ['-C', dir, 'worktree', 'list', '--porcelain'], { encoding: 'utf8', env });
+  const line = r.status === 0 ? r.stdout.split('\n').find(l => l.startsWith('worktree ')) : undefined;
+  return line ? line.slice('worktree '.length) : dir;
+}
+
+/**
+ * The project a command run in <dir> works on: the checkout holding <dir> (its git top level), so a project that is
+ * itself one worktree of a repository uses its own settings; or, when that checkout is a pipeline run's worktree, the
+ * checkout the run was started from (its record's root; a record without one: the main working tree).
+ */
+export function projectRoot(dir: string, env: NodeJS.ProcessEnv = process.env): string {
+  const r = spawnSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', env });
+  const top = r.status === 0 && r.stdout.trim() ? r.stdout.trim() : dir;
+  const reg = registryDir(top);
+  const here = realOr(top);
+  for (const slug of recordedSlugs(reg)) {
+    const rec = readRecord(reg, slug);
+    if (rec && typeof rec.worktree === 'string' && rec.worktree && realOr(rec.worktree) === here) {
+      return typeof rec.root === 'string' && rec.root ? rec.root : mainTree(top, env);
+    }
+  }
+  return top;
 }

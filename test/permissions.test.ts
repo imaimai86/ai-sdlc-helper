@@ -155,7 +155,7 @@ describe('command line', () => {
     expect(usage.stderr).toContain('Usage: ai-sdlc-helper permissions');
   });
 
-  test('permit decides the asks of <backlogDir>/<slug> in the project and saves always-rules in the main working tree', async () => {
+  test('permit decides the asks of <backlogDir>/<slug> in the project and saves always-rules in that project', async () => {
     const root = tmp('sdlc-permit-');
     dirs.push(root);
     const git = (...a: string[]) => spawnSync('git', ['-C', root, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' });
@@ -173,7 +173,7 @@ describe('command line', () => {
     const rules = path.join(root, '.claude', 'sdlc-permissions.json');
     expect(JSON.parse(fs.readFileSync(rules, 'utf8')).allow).toEqual(['Bash(git push:*)']);
 
-    // from another worktree the rules still go to the main one
+    // another worktree with its own settings and backlog is its own project: its rules are its own
     const wt = `${root}-wt`;
     dirs.push(wt);
     git('worktree', 'add', '-q', '-b', 'other', wt);
@@ -183,8 +183,8 @@ describe('command line', () => {
     fs.writeFileSync(wtState, JSON.stringify({ pending: [{ stage: 'plan', tool: 'Bash', detail: 'make', rule: 'Bash(make:*)', protected: false }] }));
     r = await cli(wt, 'permit', 'my-feature', 'always');
     expect([r.status, r.stdout.trim()]).toEqual([0, '0']);
-    expect(JSON.parse(fs.readFileSync(rules, 'utf8')).allow).toEqual(['Bash(git push:*)', 'Bash(make:*)']);
-    expect(fs.existsSync(path.join(wt, '.claude', 'sdlc-permissions.json'))).toBe(false);
+    expect(JSON.parse(fs.readFileSync(rules, 'utf8')).allow).toEqual(['Bash(git push:*)']);
+    expect(JSON.parse(fs.readFileSync(path.join(wt, '.claude', 'sdlc-permissions.json'), 'utf8')).allow).toEqual(['Bash(make:*)']);
 
     // the remaining ask, all at once by default, denied
     r = await cli(root, 'permit', 'my-feature', 'deny');
@@ -230,5 +230,20 @@ describe('a refused command line with several commands', () => {
     decide(files.state, '0', 'allow', files.repo);
     fs.writeFileSync(files.json, agentJson([denial('Bash', { command: line })]));
     expect(extract({ jsonFile: files.json, logFile: files.log, stateFile: files.state, stage: 'spec', cwd: CWD, allowed: ['Bash(cd:*)', 'Bash(echo:*)'] })).toBe(0);
+  });
+});
+
+describe('package-manager scripts', () => {
+  test('a refused `npm run <script>` (and pnpm, yarn, bun) asks for that script only, not every script', () => {
+    const rule = (command: string) => ruleFor('Bash', { command }, CWD);
+    expect(rule('npm run generate-spec --prefix server')).toBe('Bash(npm run generate-spec:*)');
+    expect(rule('pnpm run build:prod')).toBe('Bash(pnpm run build:prod:*)');
+    expect(rule('yarn exec tsc --noEmit')).toBe('Bash(yarn exec tsc:*)');
+    expect(rule('npm run-script lint')).toBe('Bash(npm run-script lint:*)');
+    // no script name, or an option where it would be: the two words, as before
+    expect(rule('npm run')).toBe('Bash(npm run:*)');
+    expect(rule('npm run --silent x')).toBe('Bash(npm run:*)');
+    expect(rule('npm install pino')).toBe('Bash(npm install:*)');
+    expect(rule('make run tests')).toBe('Bash(make run:*)');
   });
 });
