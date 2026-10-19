@@ -139,6 +139,13 @@ The server can start agents and change files, so it must be reachable by the dev
 
 ## Phase 1: the smallest usable app
 
+**Status (2026-10-19): built.** `ai-sdlc-helper ui`, `web/server`, `web/ui`, and the engine's `runView`, `boardView`,
+`answerQuestions` and `addBacklogItem` (E-3, E-4) are in. Different from the plan below: the Settings screen shows the
+resolved settings and the file but not yet the rendered stage prompts; files open read-only; a command palette (any
+command of the tool, run as a separate process) was added; the Playwright smoke test is not in the suite yet (the server
+tests drive every route against throwaway repositories and a stand-in pipeline, and the screens were checked by hand in
+Chromium, in both themes and at phone width).
+
 A developer with a registered project, or a folder they can add from the page, takes a backlog item from idea to
 shipped commit without opening a terminal.
 
@@ -242,8 +249,8 @@ What the UI needs from `src/`. Until a request lands, its controls are drawn dis
 
 | # | Engine support | Unblocks in the UI | Phase |
 |---|---|---|---|
-| E-3 | `runView()`, `boardView()`: the mod's file parsing as engine functions | Board, Run screen | 1 |
-| E-4 | `addBacklogItem()`, `answerQuestions()` | New item, Submit answers | 1 |
+| E-3 | `runView()`, `boardView()`: the mod's file parsing as engine functions (done) | Board, Run screen | 1 |
+| E-4 | `addBacklogItem()`, `answerQuestions()` (done) | New item, Submit answers | 1 |
 | E-1 | Prompt overrides per file: project `.sdlc/prompts/`, then personal, then shipped (today `promptsDir` replaces the whole folder); a run records the prompts it used | Prompts: Save to project / personal | 2 |
 | E-2 | `stage-models.txt` per run, read before each agent starts (`add-stage-model-switch`) | Stage pickers on a running run | 2 |
 | E-13 | Model defaults per project in settings (`agent.models`); today only `MODEL_<STAGE>` / `EFFORT_<STAGE>` in the environment | Models: Save as project default | 2 |

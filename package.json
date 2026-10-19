@@ -49,22 +49,26 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit && tsc -p test",
+    "build": "tsc -p tsconfig.build.json && npm run build:web",
+    "build:web": "tsc -p web/tsconfig.build.json && vite build web/ui --logLevel warn",
+    "typecheck": "tsc --noEmit && tsc -p test && tsc -p web && tsc -p web/ui",
     "lint": "eslint .",
     "test": "vitest run",
     "check": "npm run lint && npm run typecheck && npm test",
     "e2e": "npm run build && node e2e/run.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run clean && npm run build && npm run check"
+    "prepublishOnly": "npm run clean && npm run build && npm run check",
+    "ui": "npm run build && node dist/bin.js ui"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@types/node": "^18.19.130",
     "eslint": "^9.39.5",
+    "preact": "^10.29.8",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.2",
+    "vite": "^5.4.21",
     "vitest": "^3.2.7"
   }
 }

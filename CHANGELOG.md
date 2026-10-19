@@ -12,6 +12,11 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
 
 ### Added
 
+- **The web app: `ai-sdlc-helper ui`.** A local server (127.0.0.1, token-protected) and a browser app to run the whole
+  pipeline without the terminal: a live board, runs with their questions, refused actions, output and files, start,
+  resume, restart, stop and discard, per-run environment (model and effort per stage), new backlog items, projects and
+  doctor, a command palette, light and dark themes. It lives in `web/` and uses the engine only through its public entry.
+- **`runView`, `boardView`, `answerQuestions`, `addBacklogItem`** in the library, for monitors of the pipeline.
 - **New dependencies are installed by the pipeline.** The Plan stage may read a library's published docs (WebFetch,
   WebSearch, context7, or the new `ai-sdlc-helper fetch <https-url>`, a GET-only read from package-doc hosts) and
   lists exact versions under `## Dependencies` in the plan; Implement installs them first, without install scripts.

@@ -2,7 +2,7 @@
 
 Status (2026-10-19): the canvas is done (source in [design/web-ui/](design/web-ui/), live at
 https://claude.ai/artifact/TnKe8fZruDfqws2tMAzZzP) with light, dark and system themes on every screen, as asked after
-the first review; the folder layout and engine requests are in [web-ui.md](web-ui.md). Phase 1 is being implemented.
+the first review; the folder layout and engine requests are in [web-ui.md](web-ui.md). Phase 1 is built (see the status under Phase 1 in web-ui.md).
 
 ## Context
 You asked for a design of the local web app planned in `docs/web-ui.md`. It is for developers, so it should give full control with no restrictions. Anything the engine cannot do yet gets a backend support request, and its UI goes to the future plan. Mid-turn you added that the web server and the UI must sit isolated in one folder. The canvas was created (https://claude.ai/artifact/TnKe8fZruDfqws2tMAzZzP) and its index written in the scratchpad (`…/scratchpad/design/project/canvas.json`), but nothing is published yet. This plan finishes the canvas and records the folder layout and the support requests in the docs.
