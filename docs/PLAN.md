@@ -64,7 +64,9 @@ The plugin is thin: every action calls the command. It checks at SessionStart th
    Test repair) and #100 (the "Action needed" banner for paused pipelines, in the pane and above the prompt).
 6. **End-to-end checks.** Sample projects (Node + Jest, TypeScript + Vitest, Node + Mocha, a JUnit-only project) run
    the whole pipeline in CI with a recorded stand-in for `claude`; one real run per release.
-7. **Release.** npm publish with provenance, GitHub release, README, semver, CHANGELOG; the plugin declares the
+7. **Local web app.** `ai-sdlc-helper ui`: the whole pipeline from a browser, with a Settings tab down to each stage's
+   prompt, in three phases; see [web-ui.md](web-ui.md).
+8. **Release.** npm publish with provenance, GitHub release, README, semver, CHANGELOG; the plugin declares the
    versions it supports. Optionally a self-contained binary that needs no Node install, built with Node's
    single-executable apps or `bun build --compile`.
 

@@ -1,0 +1,209 @@
+# Plan: the local web app
+
+Goal: a developer can run every part of the pipeline (register a project, write backlog items, start, follow, answer,
+permit, resume, stop, discard, configure) from a browser, without the terminal. Settings, down to each stage's prompt,
+can be changed from a Settings tab. It ships in phases; phase 1 is the smallest app that covers a whole pipeline run.
+
+The web app sits beside the command and the Claude Code plugin (phase 5 of [PLAN.md](PLAN.md)). All three go through the
+same engine, so a run started in one shows up in the others.
+
+## Where the features come from
+
+The Claude Code mod in `imaimai86/production-retail-and-wholesale` (`.claude/plugins/sdlc-monitor/hooks/register.tsx`,
+PRs #69, #79, #81, #83, #86, #100) is the reference. What it does today, and where each part lands here:
+
+| Mod feature | Source | Web app phase |
+|---|---|---|
+| Board: pending items and one column per stage (Spec … Review, Commit), a card per run with its state glyph | `boardView` | 1 |
+| Tick pending items, **Run selected**; items past the parallel cap wait in a queue that drains as runs end | `runSelected`, `drainQueue` (cap 2) | 1 (queue in 2) |
+| Pending item screen: type, priority, title, `brief.md`, **Start** | run view, not-started branch | 1 |
+| Run screen: stage strip with each stage's state and `model · effort`, current agent and its clock, the `note` (usage limit wait) | `stageStates`, `stageModel`, `stateLine` | 1 |
+| Files changed since base and uncommitted; tests passed and failing | `loadChanges`, `testCounts` | 1 |
+| Files changed per stage (8 shown, then "+N more") | `parseStageFiles` | 1 |
+| Recent output (end of `run.out`) | `tail` | 1 (live stream) |
+| Failure reason box (end of the failed stage's log) with **Copy** | `failureReason`, `reasonBox` | 1 |
+| **Stop** (second press confirms), **Resume** at the right stage, **Discard** (confirm) and the command that brings a discarded branch back | `stopRun`, `resumeFrom`, `discardRun` | 1 |
+| Spec questions: body, **Suggested**, **Use suggested**, an answer per question, **Submit answers and resume** | `parseQuestions`, `fillAnswers` | 1 |
+| Refused actions: **Allow this run**, **Allow always**, **Deny**, **Allow all**, **Deny all**; the protected-path warning | `decidePermission` | 1 |
+| Paused with nothing to decide: the hint and **Resume** | `pausedIdle` | 1 |
+| "Action needed" banner for paused runs | `attentionBanner` (#100) | 1 |
+| Notices on state changes (paused, failed, done) and a status summary | `tick`, `notify`, `$.ui.status` | 1 (in-page toasts, tab title); browser notifications in 2 |
+| Manual input per stage and **Resume at <stage>** | `saveManualInput` | 2 |
+| Test repair claim (**Show claim**) and the pipeline's REJECT lines | `parseClaims`, `claimRejects` | 2 |
+| CONFIG: model providers list, add, edit, remove, **Test** a model; key shown as set / not set, never its value | `loadConfig`, `saveForm`, `testModel` | 2 |
+| Runs started outside the wrapper (no Stop or Resume) | `managed` | 1 (shown read-only) |
+
+Backlog items in that repo that were planned for the pane and fit the web app better than a terminal pane:
+
+| Item | What it adds | Phase |
+|---|---|---|
+| `add-requirements-viewer` | read a pending item's brief with section links | 1 (the brief is shown on the item screen) |
+| `add-answer-notes` | accept the suggested answer and add a note to it | 2 |
+| `add-stage-model-switch` | pick model and effort per stage before it starts; locked once started | 2 (needs an engine change) |
+| `add-base-branch-dropdown` | choose the base branch per run | 2 |
+| `add-monitor-fullscreen` | two-column layout and a Files changed view grouped as docs, tests, source | 1 (the layout), 2 (grouped files) |
+| `add-stage-input-gate`, `add-stage-stop-with-input` | wait for input before each stage; stop a stage, add input, restart it | 3 (engine changes) |
+| `add-framework-config-pane` | pick a test framework, test path, **Deploy** | 3 (`suggest` and `init-tests` exist here already) |
+
+## Shape
+
+```
+browser ──HTTP + SSE──▶ ai-sdlc-helper ui (Node 18 http server, 127.0.0.1)
+                              │ imports the engine (src/runs, src/backlog, src/permissions, …)
+                              ▼
+                 detached pipeline processes (the existing supervisor)
+                 writing status.json, run.out, logs/ in each worktree
+```
+
+- **Command:** `ai-sdlc-helper ui [--port <n>] [--no-open]`. It starts a server on `127.0.0.1` (default port 4477, the
+  next free one if taken), prints the URL and opens the browser. Stopping the server never stops a run: runs are
+  detached processes with their own records, as they are today.
+- **Server:** Node's own `http` module, no runtime dependency (the package has none today; keep it that way). It calls
+  the engine's functions directly (`start`, `stop`, `discard`, `statusRecords`, `runChanges`, `backlogItems`, `decide`,
+  `loadRegistry`, `resolve`, `doctor`) rather than spawning the command, so errors come back typed, not as text to parse.
+  Everything the mod parses from files (questions, claims, stage files, permissions, test counts, failure reason) moves
+  into one engine function, `runView(ctx, slug)`, that both the server and the plugin can use.
+- **Live updates:** Server-Sent Events. The server watches each run's `status.json` and `run.out` (`fs.watch`, with a
+  3-second poll as the fallback, as `watch --follow` does) and pushes a snapshot when one changes; output lines stream
+  as they are written. No WebSocket: the browser only listens, and every action is a plain POST.
+- **Client:** a single-page app in `ui/` (Preact and Vite, dev dependencies only), built into `dist/ui/` and served as
+  static files. Light and dark themes; the stage colours follow the mod's palette (running cyan, waiting amber, failed
+  red, done green).
+- **Several projects:** the project registry (`projects.json`) is the project switcher. Each project has its own board;
+  a badge on the switcher counts the runs that need action across all of them.
+
+### Safety
+
+The server can start agents and change files, so it must be reachable by the developer's browser only:
+
+- Bind to `127.0.0.1` only; `--host` is not offered in phase 1.
+- A random token is made at start and put in the URL the command opens (`/?t=…`); the page keeps it in a session cookie
+  (`HttpOnly`, `SameSite=Strict`). Every API call without it gets 401.
+- Requests whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>` are refused (DNS rebinding), and POSTs whose
+  `Origin` is another site are refused (CSRF).
+- API keys are never read or shown: providers store the variable's name, the page shows only whether it is set.
+- Paths come from the registry and the run records, never from the request: an API call names a project and a slug,
+  both checked against `NAME` and `SLUG`.
+
+### API (phase 1)
+
+| Method and path | Engine call |
+|---|---|
+| `GET /api/projects` | `readRegistry` |
+| `POST /api/projects` `{ path, name? }` | `add` (with `--yes`) |
+| `GET /api/projects/:p/doctor` | `doctor` |
+| `GET /api/projects/:p/board` | `backlogItems` + `statusRecords` + `allChanges` |
+| `POST /api/projects/:p/backlog` `{ slug, type, title, brief }` | new: writes the index line and `brief.md` |
+| `GET /api/projects/:p/runs/:slug` | new `runView` |
+| `POST /api/projects/:p/runs/:slug/start` `{ from? }` | `start` |
+| `POST …/stop`, `…/discard` `{ stop? }`, `…/restart` `{ from? }` | `stop`, `discard`, `restart` |
+| `POST …/answers` `{ answers: { [n]: text } }` | fills `questions.md`, then `start` |
+| `POST …/permissions` `{ which, choice }` | `decide`, then `start` when nothing is left pending |
+| `GET /api/projects/:p/settings` | `resolve` (the resolved settings and where each value came from) |
+| `GET /api/events?project=:p` | SSE: board snapshots, run snapshots, output lines |
+
+## Phase 1: the smallest usable app
+
+A developer with a registered project, or a folder they can add from the page, takes a backlog item from idea to
+shipped commit without opening a terminal.
+
+**Screens**
+
+1. **Projects.** The registered projects; **Add project** takes a folder path, shows what `add` would write
+   (`sdlc.config.json`, backlog index) and registers it. Each project shows the `doctor` checks (Node, git, `claude`,
+   settings, backlog) with a plain fix for each failing one. A project whose checks fail cannot start runs.
+2. **Board** (the mod's two-column layout). Left: pending backlog items (tick boxes, **Run selected**, **New item**)
+   and runs grouped by state (needs action, running, failed, done). Right: the selected item or run. The top bar has the
+   project switcher, the "Action needed" banner and a summary (`2 running · 1 paused`). Runs past the parallel cap are
+   refused with the engine's message (exit 3); the queue comes in phase 2.
+3. **New item.** Slug (checked against `SLUG` and the existing items), type (feature or bug), title, and the brief in a
+   Markdown editor with the sections the triage skill writes (Problem, Expected behaviour, Decisions, Scope, Tests,
+   Docs, Open questions) as a starting template. Saving writes the index line and `brief.md` in the main working tree.
+4. **Item screen** (not started): type, priority, title, the brief rendered, **Start**.
+5. **Run screen:**
+   - stage rail: Spec, Plan, Red tests, Implement, Test repair, Review, Ship (`status.json` names it `Commit`), each
+     with its state and `model · effort`;
+   - the current agent, its clock, the `note` while a usage limit is waited out;
+   - files changed and uncommitted, tests passed and failing, files changed per stage;
+   - live output (follows the end of `run.out`, pause on scroll, **Copy**);
+   - when failed: the reason box and **Resume from <stage>** (the mod's rule: Plan and Red tests resume at their stage,
+     later stages at Implement);
+   - when paused on questions: each question with its suggestion, **Use suggested** or a typed answer, and
+     **Submit answers and resume** (enabled once every question has an answer);
+   - when paused on refused actions: each action with **Allow this run**, **Allow always**, **Deny**, and **Allow all**,
+     **Deny all**; a protected path says that allowing it runs the stage without permission checks;
+   - **Stop** and **Discard** with a confirm step; after a discard, the saved branch tip and how to get it back;
+   - when done: the commits on the run's branch and its worktree path. Merging stays with the developer (phase 2
+     adds a button).
+6. **Settings (read-only).** The resolved settings with the source of each value (`sdlc.config.json`, detected,
+   default) and the stage prompts as rendered for this project. Read-only in phase 1, so the tab exists and is
+   useful before editing lands.
+
+**Toasts** when a run pauses, fails or finishes, while the page is open, and the count of runs needing action in the tab
+title.
+
+**Engine work in phase 1** (in `src/`, tested like the rest):
+
+- `runView(ctx, slug)`: one object with everything the run screen shows (the mod's `loadRun` and its parsers, moved out
+  of the plugin), and `boardView(ctx)` for the board. The plugin in phase 5 uses the same functions.
+- `addBacklogItem(place, { slug, type, title, brief })`: writes the index line and the brief; refuses a slug that
+  exists.
+- `answerQuestions(docsDir, answers)`: the mod's `fillAnswers`, with the check that every question has an answer.
+- `src/ui/server.ts` (routes, token, host and origin checks, SSE) and the `ui` command.
+
+**Tests** (Vitest, the real code): the server started on a free port against the throwaway repos and the recorded
+`claude` stand-in the pipeline tests use; each route's success and refusal (no token, wrong host, wrong origin, bad
+slug); a run started through the API reaches `done`, and one pauses on questions and resumes after `POST answers`; SSE
+delivers a snapshot after `status.json` changes. One Playwright smoke test (Chromium is available in CI) drives a run
+from the board to done. `runView` and `addBacklogItem` get their own unit tests.
+
+**Not in phase 1:** editing settings or prompts, model providers, manual input per stage, the run queue, model choice
+per stage, merging, triage with an agent, remote access.
+
+**Done when:** on a sample project from `e2e/projects`, a developer registers it, writes an item, starts it, answers the
+Spec questions, allows a refused command, sees it ship, and discards another run, all in the browser.
+
+## Phase 2: control
+
+- **Settings editing.** A form per block of `sdlc.config.json` (tests, lint, worktree, git, agent, ship, node, ui),
+  checked with `validate` before it is saved, the error shown on the field at fault. A JSON view for anything the form
+  does not cover.
+- **Prompts editor.** Each stage prompt (`prompt-spec.md` … `prompt-review.md`, `prompt-test-repair.md`,
+  `prompt-test-audit.md`) and the parts (`parts/tools.md`, the code search parts) in a Markdown editor, with the
+  placeholders (`{{TEST_CMD}}`, `{{SLUG}}` …) listed and a **Preview** that renders it for a chosen item. **Reset to
+  default** removes the override; a diff against the shipped prompt is shown. Needs an engine change: prompts resolve
+  per file from `<project>/.sdlc/prompts/` (committed, the team's), then the user's config directory (personal), then
+  `assets/prompts/` (today the whole directory is replaced by `promptsDir`). A run records which prompt files it used.
+- **Model choice per stage**, as `add-stage-model-switch` decides: a `stage-models.txt` in the run's folder, read before
+  each agent starts, never waited for; a stage that has started is locked (stop and resume to change it).
+  Defaults per project in settings.
+- **Model providers** (the mod's CONFIG pane): list, add, edit, remove, test.
+- **Manual input per stage** and **Resume at <stage>**; **answer notes** (accept the suggestion and add a note).
+- **Run queue:** ticked items past the cap wait and start as runs end (kept by the server; lost when it stops, which the
+  page says).
+- **Base branch** per run (`add-base-branch-dropdown`); **Restart from <stage>**.
+- **Test repair claim** with the REJECT lines; files changed grouped as docs, tests and source, with a diff viewer per
+  file.
+- **Finish a run:** show the branch's diff against its base; **Merge** into the base (fast-forward or merge commit) or
+  **Push branch**, each after a confirm naming the branch.
+- Browser notifications (opt-in), and the server as a background service (`ui --detach`, `ui stop`).
+
+## Phase 3: everything else
+
+- **Triage and interview with an agent:** a chat on the page that runs the `triage` or `interview` skill through
+  `claude` and writes the briefs, so items need not be written by hand.
+- **Stage input gate** and **stop a stage, add input, restart it** (`add-stage-input-gate`, `add-stage-stop-with-input`).
+- **Test frameworks** (`add-framework-config-pane`): `suggest`, then `init-tests` with a confirm; the code indexer
+  choice (`code-search`); permission rules (`.claude/sdlc-permissions.json`) as an editable list.
+- **Skills editor**, like the prompts editor, for `assets/skills/`.
+- **History and cost:** finished runs with their stages, durations, models and token use, and a per-run timeline.
+- **Pull requests:** open a pull request for a shipped run through `gh` when it is installed, and show its CI.
+- Remote access behind an explicit `--host` with the token required, for a dev box reached over SSH or a tunnel.
+
+## Open questions
+
+- Port: a fixed default (4477) with fallback, or always a free one? The plan takes the fixed default so bookmarks work.
+- Should the Claude Code plugin's pane (phase 5 of the main plan) open the web app instead of drawing its own board, or
+  keep both? The engine functions are shared either way.
+- Prompt overrides: keep them in the project (`.sdlc/prompts/`) so the team shares them, in the user directory only, or
+  both as planned?
