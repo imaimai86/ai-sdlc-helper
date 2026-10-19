@@ -200,6 +200,53 @@ Spec questions, allows a refused command, sees it ship, and discards another run
 - **Pull requests:** open a pull request for a shipped run through `gh` when it is installed, and show its CI.
 - Remote access behind an explicit `--host` with the token required, for a dev box reached over SSH or a tunnel.
 
+## Storage
+
+No database: the web app reads and writes the files the command already uses, so a run started from the command, the
+plugin or the page shows in all three, and the server keeps only a cache it can rebuild.
+
+| Data | Where |
+|---|---|
+| Backlog items | `<backlogDir>/index.md` (one line each, status marker) and `<backlogDir>/<slug>/brief.md`; committed |
+| Settings | `sdlc.config.json`; committed |
+| A run's documents | `<backlogDir>/<slug>/` in its worktree: specs, plan, test cases, review, `questions.md`, `manual-inputs.md`, `test-issues.md` |
+| A run's progress | `<backlogDir>/<slug>/logs/` in its worktree: `status.json`, `run.out`, `tests.json`, `permissions.json`, `baseline.json` |
+| Run records | `<git common dir>/sdlc-runs/<slug>.json`, shared by every checkout |
+| The code | the run's worktree and branch |
+| Permission rules | `.claude/sdlc-permissions.json`; committed |
+| Projects, model providers | the user's config directory (`~/.config/ai-sdlc-helper/`); keys by variable name only |
+
+Phase 2 adds `queue.json` (the run queue, so it survives a server restart) and prompt overrides in
+`<project>/.sdlc/prompts/` and the user's config directory, both files too.
+
+## Future enhancements
+
+To consider after phase 3; none is planned yet.
+
+### A database for history and search
+
+A store such as SQLite beside the files, for what the files do not keep well: runs after their worktree is discarded,
+durations, models and token use per stage, and search across runs and projects. The files stay the source of truth for
+live runs; the database would hold a copy written when a run changes state or ends.
+
+Pros:
+- History outlives `discard`, which deletes the worktree and its logs today.
+- Fast queries for the history, cost and timeline views (phase 3) and across projects, instead of reading every
+  record and log on each request.
+- Transactions for the server's own state (queue, notifications seen, preferences) as it grows.
+
+Cons:
+- A second copy of the run state that can drift from the files the command and plugin write; something must
+  reconcile them (rebuild from the files on start).
+- Node's built-in `node:sqlite` needs Node 22 or newer (the tool supports 18); `better-sqlite3` is a native module that
+  must build or download for each platform, the package's first runtime dependency.
+- Schema migrations to ship and test with every release that changes it.
+- Harder to inspect, diff and fix by hand than JSON and Markdown, and not shareable through git as the backlog is.
+
+Lighter option first: an append-only `history.jsonl` in the user's config directory, one line per finished run (slug,
+project, stages with durations, models, tokens, outcome). It covers the history view without a dependency; move to a
+database only when queries over it are too slow, or when Node 22 is the minimum.
+
 ## Open questions
 
 - Port: a fixed default (4477) with fallback, or always a free one? The plan takes the fixed default so bookmarks work.
