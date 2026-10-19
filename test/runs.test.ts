@@ -605,3 +605,19 @@ describe('a project that is one worktree of a bigger repository', () => {
     expect(st.stdout).toMatch(/exited +trial-only/);
   });
 });
+
+describe('runs of other checkouts of the repository', () => {
+  test('status and changes --all list this project\'s runs only; a record without a root belongs to the main working tree', async () => {
+    fs.mkdirSync(reg(), { recursive: true });
+    const other = path.join(tmp, 'other-checkout');
+    git(repo, 'worktree', 'add', '-q', '-b', 'other', other, 'main');
+    fs.writeFileSync(path.join(reg(), 'mine.json'), JSON.stringify({ slug: 'mine', worktree: '', pid: 0, state: 'exited', exit_code: '0', root: repo }));
+    fs.writeFileSync(path.join(reg(), 'legacy.json'), JSON.stringify({ slug: 'legacy', worktree: '', pid: 0, state: 'exited', exit_code: '2' }));
+    fs.writeFileSync(path.join(reg(), 'theirs.json'), JSON.stringify({ slug: 'theirs', worktree: '', pid: 0, state: 'exited', exit_code: '0', root: other }));
+    const slugs = (out: string) => out.split('\n').filter(Boolean).map(l => l.trim().split(/\s+/)[1]).sort();
+    expect(slugs((await cli(['status'])).stdout)).toEqual(['legacy', 'mine']);
+    expect(slugs((await cli(['status'], {}, other)).stdout)).toEqual(['theirs']);
+    expect(JSON.parse((await cli(['status', '--json'], {}, other)).stdout).map((r: { slug: string }) => r.slug)).toEqual(['theirs']);
+  });
+});
+

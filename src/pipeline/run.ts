@@ -134,6 +134,10 @@ async function setup(opts: PipelineOptions, from: From, env: NodeJS.ProcessEnv, 
   if (!exists(path.join(root, docs, 'brief.md'))) stop(say, `Missing ${docs}/brief.md`);
   const log = `${docs}/logs`;
   fs.mkdirSync(path.join(root, log), { recursive: true });
+  // The logs folder ignores itself: the run's logs never show in git status and are never committed, whatever the
+  // project's own .gitignore says.
+  const logIgnore = path.join(root, log, '.gitignore');
+  if (!exists(logIgnore)) fs.writeFileSync(logIgnore, '*\n');
 
   // Code search: the indexer in use (its tools and commands for the agents, its guide for {{CODE_SEARCH}}), else Grep and Glob.
   fs.writeFileSync(path.join(root, log, 'code-search.txt'), searchNote.map(w => `NOTE: ${w}\n`).join(''));

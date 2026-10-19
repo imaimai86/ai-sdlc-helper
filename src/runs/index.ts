@@ -11,7 +11,7 @@ import { resolve, worktreeBase } from '../config/settings.js';
 import { findContaining, readRegistry, type ProjectOverrides } from '../registry/projects.js';
 import { worktreeChanges } from '../changes/index.js';
 import {
-  alive, isRunning, killTree, projectRoot, now, readRecord, recordFile, recordedSlugs, registryDir, runState, writeRecord, type RunRecord,
+  alive, isRunning, killTree, mainTree, projectRoot, now, readRecord, recordFile, recordedSlugs, registryDir, runState, writeRecord, type RunRecord,
 } from './records.js';
 import { startSupervisor, type SetupStep } from './supervisor.js';
 
@@ -344,8 +344,22 @@ export async function restart(ctx: RunContext, slug: string, opts: StartOptions 
 }
 
 /** One line per recorded run: its state and slug, then the exit code or pid. */
+/**
+ * The slugs of this project's runs. The run registry is shared by every checkout of the repository: a record names the
+ * checkout that started it (root); one without (from the shell pipeline) belongs to the main working tree.
+ */
+export function projectSlugs(ctx: RunContext): string[] {
+  const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  const here = real(ctx.root);
+  const main = real(mainTree(ctx.root, ctx.env));
+  return recordedSlugs(ctx.reg).filter(slug => {
+    const rec = readRecord(ctx.reg, slug) || {};
+    return real(typeof rec.root === 'string' && rec.root ? rec.root : main) === here;
+  });
+}
+
 export function statusLines(ctx: RunContext): string[] {
-  return recordedSlugs(ctx.reg).map(slug => {
+  return projectSlugs(ctx).map(slug => {
     const rec = readRecord(ctx.reg, slug) || {};
     const state = runState(rec);
     const extra = state === 'running' ? `pid ${rec.pid}` : rec.exit_code !== undefined && rec.exit_code !== '' ? `exit ${rec.exit_code}` : '';
@@ -355,7 +369,7 @@ export function statusLines(ctx: RunContext): string[] {
 
 /** Every record with the state worked out (running, stopped, interrupted, exited), for --json. */
 export const statusRecords = (ctx: RunContext): (Partial<RunRecord> & { run: string })[] =>
-  recordedSlugs(ctx.reg).map(slug => { const rec = readRecord(ctx.reg, slug) || {}; return { ...rec, slug, run: runState(rec) }; });
+  projectSlugs(ctx).map(slug => { const rec = readRecord(ctx.reg, slug) || {}; return { ...rec, slug, run: runState(rec) }; });
 
 /** The folder `watch` reads: the run's worktree, else the main working tree for a run started in place; null: none. */
 export function watchDir(ctx: RunContext, slug: string, cwdRoot: string): string | null {
@@ -410,7 +424,7 @@ export function allChanges(ctx: RunContext, slugs: string[] = []): Record<string
   let base: string | undefined;
   const lazyBase = () => (base ??= pickBase(ctx));
   const runs: Record<string, { changed: number; uncommitted: number } | { error: string }> = {};
-  for (const slug of slugs.length ? slugs : recordedSlugs(ctx.reg)) {
+  for (const slug of slugs.length ? slugs : projectSlugs(ctx)) {
     const c = runChanges(ctx, slug, lazyBase);
     runs[slug] = 'error' in c ? { error: c.error } : { changed: c.changed, uncommitted: c.uncommitted };
   }

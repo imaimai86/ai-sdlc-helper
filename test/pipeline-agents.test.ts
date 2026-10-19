@@ -1,6 +1,7 @@
 // What stage agents are given (tools, web reads, dependencies) and how a usage limit is waited out.
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { AgentRequest } from '../src/pipeline/agent.js';
 import { installCommands, installDeps, plannedDeps } from '../src/pipeline/deps.js';
@@ -154,5 +155,23 @@ describe('dependencies from the plan', () => {
     expect(() => installDeps(s.ctx)).toThrow(Exit);
     expect(s.calls()).toEqual([]);
     expect(s.out).toEqual(["ERROR: dependency 'pino@latest' in items/s/plan-1.md must be name@<exact version>"]);
+  });
+});
+
+describe('the run logs', () => {
+  test('never reach a commit or git status, also in a project whose .gitignore does not mention them', async () => {
+    const f = fixture();
+    const sh = (...args: string[]) => spawnSync('git', ['-C', f.dir, ...args], { encoding: 'utf8' }).stdout;
+    fs.writeFileSync(path.join(f.dir, '.gitignore'), '');
+    sh('commit', '-q', '-am', 'no ignore entry for the logs');
+    const base = sh('rev-parse', 'HEAD').trim();
+    const r = await pipeline(f);
+    expect(r.status).toBe(0);
+    const committed = sh('log', '--name-only', '--format=', `${base}..HEAD`).split('\n').filter(Boolean);
+    expect(committed).toContain(`${DOCS}/specs-1.md`);
+    expect(committed.filter(p => p.includes('/logs/'))).toEqual([]);
+    expect(sh('status', '--porcelain', '--untracked-files=all')).toBe('');
+    expect(read(f.dir, `${DOCS}/logs/status.json`)).toContain('"state":"done"');
+    expect(read(f.dir, `${DOCS}/logs/.gitignore`)).toBe('*\n');
   });
 });

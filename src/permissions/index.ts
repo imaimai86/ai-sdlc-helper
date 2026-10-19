@@ -59,11 +59,17 @@ export function commandParts(command: string): string[] {
   return parts.map(x => x.trim()).filter(Boolean);
 }
 
-/** The rule for one command: its first one or two words. */
+/** Package managers whose `run`/`exec` would allow every script: their rule names the script too. */
+const SCRIPT_RUNNERS = ['npm', 'pnpm', 'yarn', 'bun'];
+
+/** The rule for one command: its first one or two words; for `npm run <script>` and the like, the first three. */
 function commandRule(command: string): string {
   const words = command.split(/\s+/);
   const head = words[0] && /^[\w./-]+$/.test(words[0]) ? [words[0]] : [];
   if (head.length && words[1] && /^[a-z][\w-]*$/.test(words[1])) head.push(words[1]);
+  if (head.length === 2 && SCRIPT_RUNNERS.includes(words[0]) && ['run', 'run-script', 'exec'].includes(words[1]) && words[2] && /^[\w:.@/-]+$/.test(words[2]) && !words[2].startsWith('-')) {
+    head.push(words[2]);
+  }
   return head.length ? `Bash(${head.join(' ')}:*)` : 'Bash';
 }
 
