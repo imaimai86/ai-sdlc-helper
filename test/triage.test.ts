@@ -18,6 +18,9 @@ function project(): string {
   write(dir, 'Docs/backlog/old-item/brief.md', '# old-item\n');
   git(dir, 'init', '-q', '-b', 'main');
   git(dir, 'config', 'maintenance.auto', 'false');
+  // its own identity: the tool's commits must work on a machine with no global git identity (CI)
+  git(dir, 'config', 'user.name', 't');
+  git(dir, 'config', 'user.email', 't@t');
   git(dir, 'add', '-A');
   git(dir, 'commit', '-q', '-m', 'init');
   return dir;
