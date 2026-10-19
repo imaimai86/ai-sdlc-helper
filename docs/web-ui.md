@@ -45,11 +45,46 @@ Backlog items in that repo that were planned for the pane and fit the web app be
 | `add-stage-input-gate`, `add-stage-stop-with-input` | wait for input before each stage; stop a stage, add input, restart it | 3 (engine changes) |
 | `add-framework-config-pane` | pick a test framework, test path, **Deploy** | 3 (`suggest` and `init-tests` exist here already) |
 
+## Design
+
+The screens are drawn in a design canvas: https://claude.ai/artifact/TnKe8fZruDfqws2tMAzZzP (Board in dark and light,
+Run, New item, Settings, Prompts and skills, Models, Projects, Engine requests). The design is for developers and holds
+nothing back:
+
+- Every panel names the file it reads (`status.json`, `questions.md`, `sdlc.config.json` …) and has **Edit raw**.
+- Every action shows its command (`$ ai-sdlc-helper start …`) with **Copy**, and a ⌘K palette runs any command.
+- A run's environment (`SDLC_BASE`, `MODEL_<STAGE>`, `EFFORT_<STAGE>`, `SDLC_LIMIT_RETRY`, `SDLC_LIMIT_MAX_WAIT`,
+  `SDLC_DEP_SCRIPTS`, …) is editable and applies when the run starts or resumes.
+- Settings are a form with the source of every value (config, detected, default), a live diff of `sdlc.config.json`,
+  and Raw JSON for anything the form does not cover; unknown keys are kept.
+- What the engine cannot do yet is drawn but disabled, tagged `Future · E-n`, pointing to
+  [Engine support requests](#engine-support-requests).
+- **Themes:** Light, Dark and System, switched in the top bar of every screen and kept per browser. Colours are tokens
+  (ground, panel, line, text, muted, and the states running, waiting, failed, done, plus Future), so both themes share one
+  layout; text and state colours pass 4.5:1 in both, and states also differ by glyph (● ⏸ ✘ ✔).
+
 ## Shape
 
+All of the web app lives in `web/`, apart from the engine:
+
 ```
-browser ──HTTP + SSE──▶ ai-sdlc-helper ui (Node 18 http server, 127.0.0.1)
-                              │ imports the engine (src/runs, src/backlog, src/permissions, …)
+web/
+  server/        the Node 18 http server: routes, token, host and origin checks, SSE
+  ui/            the Preact + Vite app
+  test/          route tests and one Playwright smoke test
+  tsconfig.json  builds the server to dist/web/server; Vite builds the app to dist/web/ui
+```
+
+- `web/server` imports the engine only through `src/index.ts`, never `src/**` directly; an ESLint
+  `no-restricted-imports` rule for `web/**` enforces it. Engine work the UI needs goes in `src/` and is exported there.
+- `src/` never imports `web/`. The `ui` command in `src/cli/` loads `dist/web/server/index.js` with a dynamic
+  `import()`, and says the web app is not built when the file is missing.
+- Preact and Vite are dev dependencies used by `web/ui` only; `package.json` gets `build:web`, and `files` adds
+  `dist/web`. Moving `web/` into its own package later is a folder move.
+
+```
+browser ──HTTP + SSE──▶ ai-sdlc-helper ui (web/server, Node 18 http server, 127.0.0.1)
+                              │ imports the engine through src/index.ts
                               ▼
                  detached pipeline processes (the existing supervisor)
                  writing status.json, run.out, logs/ in each worktree
@@ -66,9 +101,9 @@ browser ──HTTP + SSE──▶ ai-sdlc-helper ui (Node 18 http server, 127.0.
 - **Live updates:** Server-Sent Events. The server watches each run's `status.json` and `run.out` (`fs.watch`, with a
   3-second poll as the fallback, as `watch --follow` does) and pushes a snapshot when one changes; output lines stream
   as they are written. No WebSocket: the browser only listens, and every action is a plain POST.
-- **Client:** a single-page app in `ui/` (Preact and Vite, dev dependencies only), built into `dist/ui/` and served as
-  static files. Light and dark themes; the stage colours follow the mod's palette (running cyan, waiting amber, failed
-  red, done green).
+- **Client:** a single-page app in `web/ui/` (Preact and Vite, dev dependencies only), built into `dist/web/ui/` and
+  served as static files. Light, dark and system themes; the state colours follow the mod's palette (running cyan,
+  waiting amber, failed red, done green).
 - **Several projects:** the project registry (`projects.json`) is the project switcher. Each project has its own board;
   a badge on the switcher counts the runs that need action across all of them.
 
@@ -149,7 +184,8 @@ title.
 - `addBacklogItem(place, { slug, type, title, brief })`: writes the index line and the brief; refuses a slug that
   exists.
 - `answerQuestions(docsDir, answers)`: the mod's `fillAnswers`, with the check that every question has an answer.
-- `src/ui/server.ts` (routes, token, host and origin checks, SSE) and the `ui` command.
+- `web/server/` (routes, token, host and origin checks, SSE), `web/ui/` (the screens, both themes), and the thin `ui`
+  command in `src/cli/`.
 
 **Tests** (Vitest, the real code): the server started on a free port against the throwaway repos and the recorded
 `claude` stand-in the pipeline tests use; each route's success and refusal (no token, wrong host, wrong origin, bad
@@ -199,6 +235,27 @@ Spec questions, allows a refused command, sees it ship, and discards another run
 - **History and cost:** finished runs with their stages, durations, models and token use, and a per-run timeline.
 - **Pull requests:** open a pull request for a shipped run through `gh` when it is installed, and show its CI.
 - Remote access behind an explicit `--host` with the token required, for a dev box reached over SSH or a tunnel.
+
+## Engine support requests
+
+What the UI needs from `src/`. Until a request lands, its controls are drawn disabled and tagged `Future · E-n`.
+
+| # | Engine support | Unblocks in the UI | Phase |
+|---|---|---|---|
+| E-3 | `runView()`, `boardView()`: the mod's file parsing as engine functions | Board, Run screen | 1 |
+| E-4 | `addBacklogItem()`, `answerQuestions()` | New item, Submit answers | 1 |
+| E-1 | Prompt overrides per file: project `.sdlc/prompts/`, then personal, then shipped (today `promptsDir` replaces the whole folder); a run records the prompts it used | Prompts: Save to project / personal | 2 |
+| E-2 | `stage-models.txt` per run, read before each agent starts (`add-stage-model-switch`) | Stage pickers on a running run | 2 |
+| E-13 | Model defaults per project in settings (`agent.models`); today only `MODEL_<STAGE>` / `EFFORT_<STAGE>` in the environment | Models: Save as project default | 2 |
+| E-10 | Finish a run: diff against its base, merge, push the branch | Run: Merge into base | 2 |
+| E-11 | A run queue past the parallel cap that survives a restart | Board: Run selected beyond the cap | 2 |
+| E-5 | Skill overrides, as E-1 | Prompts: skills editor | 3 |
+| E-6 | Stage input gate; stop one stage, add input, restart it | Run: gate screen, Stop stage | 3 |
+| E-7 | Skip a stage or a gate for one run | Run: Skip on the stage rail | 3 |
+| E-8 | Triage and interview agent runs with a streamed conversation | New item: Draft with the triage agent | 3 |
+| E-9 | Tokens and duration per stage in `status.json`; `history.jsonl` on finish | Run: Usage; history and cost | 3 |
+| E-14 | Read an issue (GitHub through `gh`) into a draft brief | New item: Import from issue URL | 3 |
+| E-12 | A pipeline definition in settings: stage order, stages on or off, custom agent stages | Settings: Pipeline stages | later |
 
 ## Storage
 
