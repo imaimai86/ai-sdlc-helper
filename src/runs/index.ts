@@ -11,7 +11,7 @@ import { resolve, worktreeBase } from '../config/settings.js';
 import { findContaining, readRegistry, type ProjectOverrides } from '../registry/projects.js';
 import { worktreeChanges } from '../changes/index.js';
 import {
-  alive, isRunning, killTree, now, readRecord, recordFile, recordedSlugs, registryDir, runState, writeRecord, type RunRecord,
+  alive, isRunning, killTree, projectRoot, now, readRecord, recordFile, recordedSlugs, registryDir, runState, writeRecord, type RunRecord,
 } from './records.js';
 import { startSupervisor, type SetupStep } from './supervisor.js';
 
@@ -45,13 +45,6 @@ const git = (cwd: string, args: string[], env: NodeJS.ProcessEnv) =>
   spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8', env, maxBuffer: 64 * 1024 * 1024 });
 const gitOk = (cwd: string, args: string[], env: NodeJS.ProcessEnv) => git(cwd, args, env).status === 0;
 
-/** The main working tree of the repository holding <dir> (the first in `git worktree list`), else <dir>. */
-export function mainTree(dir: string, env: NodeJS.ProcessEnv = process.env): string {
-  const r = git(dir, ['worktree', 'list', '--porcelain'], env);
-  const line = r.status === 0 ? r.stdout.split('\n').find(l => l.startsWith('worktree ')) : undefined;
-  return line ? line.slice('worktree '.length) : dir;
-}
-
 const isDir = (p: string) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
 const positiveInt = (v: string) => /^[1-9]\d*$/.test(v);
 
@@ -61,7 +54,7 @@ const positiveInt = (v: string) => /^[1-9]\d*$/.test(v);
  * controls' environment (SDLC_WT_BASE, SDLC_BASE, SDLC_MAX_PARALLEL). Throws on a bad SDLC_MAX_PARALLEL.
  */
 export function runContext(dir: string, env: NodeJS.ProcessEnv = process.env): RunContext {
-  const root = mainTree(dir, env);
+  const root = projectRoot(dir, env);
   const { config } = resolve(root, { env });
   const file = readSettings(root);
   let overrides: ProjectOverrides = {};
@@ -252,7 +245,7 @@ export function start(ctx: RunContext, slug: string, opts: StartOptions = {}): O
 
     const record: RunRecord = {
       slug, worktree: wt, pid: 0, started: now(), state: 'running', exit_code: '', interrupted: false, finished: '', message: '',
-      branch, base, ...(opts.from ? { from: opts.from } : {}),
+      branch, base, root: ctx.root, ...(opts.from ? { from: opts.from } : {}),
     };
     let pid: number;
     try {

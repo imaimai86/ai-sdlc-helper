@@ -22,6 +22,10 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
 
 ### Fixed
 
+- The run controls work on the checkout they are run in. A project that is one worktree of a bigger repository
+  used the main working tree's settings (its `git.base`, backlog and links were ignored, so runs started from the wrong
+  branch); saved permission rules went there too. A command run inside a pipeline's own worktree still maps back to the
+  checkout that started it (recorded as `root` in the run record).
 - A Test repair claim that cites the plan is accepted.
 - A refused command line such as `cd x; sed …` asks for the rule of the part that was not allowed (`sed`), not an
   allowed one, and is not asked again once allowed.
