@@ -1,4 +1,4 @@
-// Lists the items in <backlogDir>/index.md with a derived status. Read-only.
+// Lists the items in <backlogDir>/index.md with a derived status, and adds new ones (addBacklogItem).
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -189,6 +189,32 @@ export function backlogItems(place: BacklogPlace): { items: BacklogItem[]; entri
   const entries = parseIndex(fs.readFileSync(indexFile, 'utf8'));
   const refs = {};
   return { items: entries.map(e => deriveItem(e, place, refs)), entries };
+}
+
+export interface NewItem { slug: string; type: 'feature' | 'bug'; title: string; brief: string }
+
+/**
+ * Adds an item: <backlogDir>/<slug>/brief.md and the line "- [ ] `<slug>` - Feature: <title>" at the end of the index
+ * (made when missing). Throws, writing nothing, on a bad slug, type or title, or a slug the index or a brief already has.
+ */
+export function addBacklogItem(place: Pick<BacklogPlace, 'root' | 'backlogDir'>, item: NewItem): { index: string; brief: string } {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(item.slug || '')) throw new Error(`slug must be lowercase letters, digits and dashes, not '${item.slug}'`);
+  if (item.type !== 'feature' && item.type !== 'bug') throw new Error(`type must be feature or bug, not '${item.type}'`);
+  const title = (item.title || '').trim();
+  if (!title || /[\r\n]/.test(title)) throw new Error('title must be one non-empty line');
+  if (!(item.brief || '').trim()) throw new Error('brief must not be empty');
+  const dir = path.join(place.root, place.backlogDir);
+  const index = path.join(dir, 'index.md');
+  const brief = path.join(dir, item.slug, 'brief.md');
+  const text = fs.existsSync(index) ? fs.readFileSync(index, 'utf8') : '';
+  if (parseIndex(text).some(e => e.slug === item.slug)) throw new Error(`${item.slug} is already in ${place.backlogDir}/index.md`);
+  if (fs.existsSync(brief)) throw new Error(`${place.backlogDir}/${item.slug}/brief.md already exists`);
+  fs.mkdirSync(path.dirname(brief), { recursive: true });
+  fs.writeFileSync(brief, item.brief.endsWith('\n') ? item.brief : `${item.brief}\n`);
+  const label = item.type === 'bug' ? 'Bug' : 'Feature';
+  const head = text ? (text.endsWith('\n') ? text : `${text}\n`) : '# Backlog\n\n';
+  fs.writeFileSync(index, `${head}- [ ] \`${item.slug}\` - ${label}: ${title}\n`);
+  return { index, brief };
 }
 
 /**

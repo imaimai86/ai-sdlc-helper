@@ -63,6 +63,25 @@ ai-sdlc-helper start add-health-check
 
 When the Spec stage has questions, the run pauses too: answer them on the `**Answer:**` lines of `Docs/backlog/<slug>/questions.md` (in the run's worktree) and start it again. `stop`, `restart`, `discard` and `status` control the runs; `changes <slug>` counts the files a run changed.
 
+## The web app
+Everything above can be done from a browser instead:
+
+```bash
+cd my-project
+ai-sdlc-helper ui        # http://127.0.0.1:4477; prints a URL that signs the browser in, and opens it
+```
+
+The board shows the backlog and a column per stage, live; tick items and run them. A run's screen shows its stages with
+model and effort, its output as it is written, the questions to answer and the refused actions to allow or deny, its
+files and run record, and every control: start, resume, resume at a stage, restart, stop, discard. Model, effort and any
+other variable (`SDLC_BASE`, `SDLC_LIMIT_MAX_WAIT` …) can be set for a run before it starts or resumes. New backlog items
+are written in the page, projects are registered and checked there, and ⌘K / Ctrl-K runs any command of the tool.
+Light, dark or the system's theme. Settings are read-only for now; editing them and the prompts comes next
+([docs/web-ui.md](docs/web-ui.md)).
+
+The server listens on 127.0.0.1 only and answers only the browser that opened its URL (a token, then a cookie);
+requests naming another host or sent from another site are refused. Stopping it (Ctrl-C) never stops a run.
+
 ## Settings
 `sdlc.config.json` at the project root; every setting is optional. `ai-sdlc-helper show` prints what the settings resolve to, and invalid settings are reported with the setting at fault. The test runs, for example:
 
@@ -170,6 +189,9 @@ Usage: ai-sdlc-helper <command> [dir] [options]
                                    the index line; then the new items are listed and, on a yes or --commit, committed on
                                    the current branch (never pushed). --print runs the agent headless (no questions:
                                    unknowns go under "Open questions"), also when there is no terminal
+  ui [--port <n>] [--no-open]      the local web app on 127.0.0.1 (default port 4477, the next free one if taken): the
+                                   board, runs, questions, refused actions, backlog and settings; prints its URL and
+                                   opens it unless --no-open. Runs go on when it stops (Ctrl-C).
   help, --help, --version
 ```
 <!-- help:end -->

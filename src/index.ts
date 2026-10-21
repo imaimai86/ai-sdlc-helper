@@ -14,7 +14,9 @@ export { argsProblem } from './cli/args.js';
 export { currentState, skipReason, snapshot, changed, mirror, mark, parseKeys, worktreeChanges, type Changed } from './changes/index.js';
 export { extract, rulesFor, modeFor, decide, ruleFor, detailFor, isProtected, loadState, repoRulesFile, type Ask } from './permissions/index.js';
 export { resolvePath as modelsFile, loadRegistry, validateProvider, validateRegistry, probe, modelsMain, type Registry } from './models/index.js';
-export { backlogItems, backlogMain, backlogPlace, parseIndex, parseTitle, type BacklogItem } from './backlog/index.js';
+export {
+  addBacklogItem, backlogItems, backlogMain, backlogPlace, parseIndex, parseTitle, type BacklogItem, type NewItem,
+} from './backlog/index.js';
 export { main, type Io } from './cli/main.js';
 export { configDir } from './configDir.js';
 export {
@@ -34,6 +36,10 @@ export {
   pipelineArgv, pipelineEnv, type RunContext, type Outcome,
 } from './runs/index.js';
 export { readRecord, recordedSlugs, registryDir, runState, type RunRecord } from './runs/records.js';
+export {
+  answerQuestions, boardView, parseQuestions, resumeStage, runView, type BoardView, type Question, type RunCard, type RunView,
+  type TestCounts, type ViewState,
+} from './runs/view.js';
 export { runPipeline, firstPending, type PipelineOptions } from './pipeline/run.js';
 export { spawnClaude, type AgentSpawn, type AgentRequest } from './pipeline/agent.js';
 export { ship, type ShipOptions } from './pipeline/ship.js';

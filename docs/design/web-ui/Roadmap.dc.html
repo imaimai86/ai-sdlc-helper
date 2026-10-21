@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Engine requests</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0a7480}a:hover{color:#075b64}
+.app{--bg:#0f1216;--pn:#151a21;--pn2:#1b212a;--ln:#262d36;--tx:#d6dde5;--mu:#8d98a5;--run:#56d4dd;--wait:#e3b341;--fail:#ff7b72;--done:#7ee787;--fut:#b3a6f0;--pri:#56d4dd;--onpri:#0b1a1c;--code:#0b0e12;--sel:#12303a;background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.45;min-height:100vh}
+.app[data-theme=light]{--bg:#f4f6f8;--pn:#ffffff;--pn2:#eef1f4;--ln:#d5dbe2;--tx:#1c2330;--mu:#566170;--run:#0a7480;--wait:#8a5a00;--fail:#c4202b;--done:#1a7f37;--fut:#6e40c9;--pri:#0a7480;--onpri:#ffffff;--code:#f7f8fa;--sel:#dff3f5}
+.app[data-theme=dark] a{color:#56d4dd}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px}
+.btn{font:inherit;font-size:13px;min-height:40px;padding:0 14px;border-radius:6px;border:1px solid var(--ln);background:var(--pn2);color:var(--tx);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;text-decoration:none}
+.btn-s{min-height:32px;padding:0 10px;font-size:12px}
+.seg{font:inherit;font-size:12px;min-height:32px;padding:0 10px;border:0;background:transparent;color:var(--mu);cursor:pointer;border-radius:4px}
+.seg-on{background:var(--pn);color:var(--tx);font-weight:600}
+.tag{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid var(--ln);color:var(--mu);white-space:nowrap}
+.fut{border:1px dashed var(--fut);color:var(--fut)}
+.p1{color:var(--run);border-color:var(--run)}
+.p2{color:var(--wait);border-color:var(--wait)}
+.pn{background:var(--pn);border:1px solid var(--ln);border-radius:8px}
+.lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);font-weight:600}
+.navi{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;border-radius:6px;color:var(--tx);text-decoration:none;font-size:13.5px}
+.navi-on{background:var(--sel);font-weight:600}
+.ph{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--ln)}
+td,th{padding:9px 10px;text-align:left;vertical-align:top}
+th{font-weight:500;color:var(--mu);font-size:12.5px}
+tbody tr{border-top:1px solid var(--ln)}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--ln); background: var(--pn)">
+<a href="Main.dc.html" class="mono" style="font-weight: 500; font-size: 14px; text-decoration: none; color: var(--tx)">◆ ai-sdlc-helper <span style="color: var(--mu)">0.1.0</span></a>
+<button class="btn btn-s" type="button">retail-wholesale ▾</button>
+<button class="btn btn-s" type="button" style="flex: 1 1 260px; justify-content: space-between; color: var(--mu); max-width: 520px">Search, or run any command… <span class="mono">⌘K</span></button>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="tag" style="color: var(--run)">● 2 running</span><span class="tag" style="color: var(--wait)">⏸ 2 need you</span><span class="tag" style="color: var(--fail)">✘ 1 failed</span></div>
+<div role="group" aria-label="Theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 6px; background: var(--pn2); border: 1px solid var(--ln)">
+<button type="button" class="{{lightCls}}" aria-pressed="{{lightOn}}" onClick="{{setLight}}">Light</button>
+<button type="button" class="{{darkCls}}" aria-pressed="{{darkOn}}" onClick="{{setDark}}">Dark</button>
+<button type="button" class="{{sysCls}}" aria-pressed="{{sysOn}}" onClick="{{setSys}}">System</button>
+</div>
+<span class="tag">127.0.0.1:4477</span>
+</header>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Main" style="flex: 1 1 200px; max-width: 240px; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; box-sizing: border-box">
+<div class="lbl" style="padding: 4px 10px">Workspace</div>
+<a class="navi" href="Main.dc.html">Board</a>
+<a class="navi" href="Run.dc.html">Runs</a>
+<a class="navi" href="NewItem.dc.html">Backlog</a>
+<div class="lbl" style="padding: 12px 10px 4px">Configure</div>
+<a class="navi" href="Settings.dc.html">Settings</a>
+<a class="navi" href="Prompts.dc.html">Prompts and skills</a>
+<a class="navi" href="Models.dc.html">Models</a>
+<div class="lbl" style="padding: 12px 10px 4px">System</div>
+<a class="navi" href="Projects.dc.html">Projects</a>
+<a class="navi navi-on" href="Roadmap.dc.html">Engine requests <span class="tag">14</span></a>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600; flex: 1 1 auto">Engine requests</h1>
+<span style="font-size: 13px; color: var(--mu)">What the UI needs from <span class="mono">src/</span>. Until a request lands, its UI is drawn disabled with a <span class="tag fut">Future · E-n</span> tag.</span>
+</div>
+<section class="pn" aria-label="Support requests">
+<div style="overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 13px; min-width: 860px">
+<thead><tr><th>#</th><th>Engine support</th><th>Unblocks in the UI</th><th>Phase</th></tr></thead>
+<tbody>
+<tr><td class="mono">E-3</td><td><span class="mono">runView()</span>, <span class="mono">boardView()</span>: the mod's file parsing as engine functions</td><td>Board, Run screen</td><td><span class="tag p1">1</span></td></tr>
+<tr><td class="mono">E-4</td><td><span class="mono">addBacklogItem()</span>, <span class="mono">answerQuestions()</span></td><td>New item, Submit answers</td><td><span class="tag p1">1</span></td></tr>
+<tr><td class="mono">E-1</td><td>Per-file prompt overrides: project <span class="mono">.sdlc/prompts/</span>, then personal, then shipped; runs record the prompts used</td><td>Prompts: Save to project / personal</td><td><span class="tag p2">2</span></td></tr>
+<tr><td class="mono">E-2</td><td><span class="mono">stage-models.txt</span> per run, read before each agent starts</td><td>Stage rail pickers on a running run</td><td><span class="tag p2">2</span></td></tr>
+<tr><td class="mono">E-13</td><td>Model defaults per project in settings (<span class="mono">agent.models</span>)</td><td>Models: Save as project default</td><td><span class="tag p2">2</span></td></tr>
+<tr><td class="mono">E-10</td><td>Finish a run: diff against base, merge, push branch</td><td>Run: Merge / Push after Ship</td><td><span class="tag p2">2</span></td></tr>
+<tr><td class="mono">E-11</td><td>Persistent run queue past the parallel cap</td><td>Board: Run selected beyond the cap</td><td><span class="tag p2">2</span></td></tr>
+<tr><td class="mono">E-5</td><td>Skill overrides, like E-1</td><td>Prompts: skills editor</td><td><span class="tag">3</span></td></tr>
+<tr><td class="mono">E-6</td><td>Stage input gate; stop one stage, add input, restart it</td><td>Run: gate screen, Stop stage</td><td><span class="tag">3</span></td></tr>
+<tr><td class="mono">E-7</td><td>Skip a stage or a gate for one run</td><td>Run: Skip on the stage rail</td><td><span class="tag">3</span></td></tr>
+<tr><td class="mono">E-8</td><td>Triage and interview agent runs with a streamed conversation</td><td>New item: Draft with the triage agent</td><td><span class="tag">3</span></td></tr>
+<tr><td class="mono">E-9</td><td>Tokens and duration per stage in status.json; <span class="mono">history.jsonl</span> on finish</td><td>Run: Usage; History and cost views</td><td><span class="tag">3</span></td></tr>
+<tr><td class="mono">E-14</td><td>Read an issue (GitHub through <span class="mono">gh</span>) into a draft brief</td><td>New item: Import from issue URL</td><td><span class="tag">3</span></td></tr>
+<tr><td class="mono">E-12</td><td>Pipeline definition in settings: stage order, on/off, custom agent stages</td><td>Settings: Pipeline stages</td><td><span class="tag fut">later</span></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">
+<section class="pn" aria-label="Folder layout" style="flex: 1 1 420px; min-width: 0">
+<div class="ph"><span style="font-weight: 600">The web app lives in its own folder</span><span class="tag">web/</span></div>
+<pre class="mono" style="margin: 0; padding: 12px 14px; background: var(--code); font-size: 12px; line-height: 1.7; overflow-x: auto; border-radius: 0 0 8px 8px">web/
+  server/        Node 18 http server: routes, token, host and origin checks, SSE
+  ui/            Preact + Vite app (both themes)
+  test/          route tests, one Playwright smoke test
+  tsconfig.json  → dist/web/server, dist/web/ui
+
+src/             the engine; never imports web/
+  index.ts       the only door web/server may use (lint rule)
+  cli/ui.ts      `ai-sdlc-helper ui`: dynamic import of dist/web/server</pre>
+</section>
+<section class="pn" aria-label="Themes" style="flex: 1 1 360px; min-width: 0">
+<div class="ph"><span style="font-weight: 600">Light and dark</span></div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+<span>Light, Dark or System in the top bar on every screen; the choice is kept per browser.</span>
+<span>One layout, colours as tokens: ground, panel, line, text, muted, and the four states (running, waiting, failed, done) plus Future.</span>
+<span>Every text and state colour passes 4.5:1 in both themes; states also differ by glyph (● ⏸ ✘ ✔), not colour alone.</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="tag" style="color: var(--run); border-color: var(--run)">● running</span><span class="tag" style="color: var(--wait); border-color: var(--wait)">⏸ waiting</span><span class="tag" style="color: var(--fail); border-color: var(--fail)">✘ failed</span><span class="tag" style="color: var(--done); border-color: var(--done)">✔ done</span><span class="tag fut">Future</span></div>
+</div>
+</section>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":1440,"height":1440}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = (this.state && this.state.mode) || this.props.theme || 'dark';
+    let theme = mode;
+    if (mode === 'system') {
+      theme = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    const cls = (m) => (mode === m ? 'seg seg-on' : 'seg');
+    return {
+      theme,
+      lightCls: cls('light'), darkCls: cls('dark'), sysCls: cls('system'),
+      lightOn: String(mode === 'light'), darkOn: String(mode === 'dark'), sysOn: String(mode === 'system'),
+      setLight: () => this.setState({ mode: 'light' }),
+      setDark: () => this.setState({ mode: 'dark' }),
+      setSys: () => this.setState({ mode: 'system' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

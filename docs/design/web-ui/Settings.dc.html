@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0a7480}a:hover{color:#075b64}
+.app{--bg:#0f1216;--pn:#151a21;--pn2:#1b212a;--ln:#262d36;--tx:#d6dde5;--mu:#8d98a5;--run:#56d4dd;--wait:#e3b341;--fail:#ff7b72;--done:#7ee787;--fut:#b3a6f0;--pri:#56d4dd;--onpri:#0b1a1c;--code:#0b0e12;--sel:#12303a;--addbg:#12261a;--delbg:#2a1517;background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.45;min-height:100vh}
+.app[data-theme=light]{--bg:#f4f6f8;--pn:#ffffff;--pn2:#eef1f4;--ln:#d5dbe2;--tx:#1c2330;--mu:#566170;--run:#0a7480;--wait:#8a5a00;--fail:#c4202b;--done:#1a7f37;--fut:#6e40c9;--pri:#0a7480;--onpri:#ffffff;--code:#f7f8fa;--sel:#dff3f5;--addbg:#e6f6ea;--delbg:#fde8e8}
+.app[data-theme=dark] a{color:#56d4dd}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px}
+.btn{font:inherit;font-size:13px;min-height:40px;padding:0 14px;border-radius:6px;border:1px solid var(--ln);background:var(--pn2);color:var(--tx);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;text-decoration:none}
+.btn-p{background:var(--pri);border-color:var(--pri);color:var(--onpri);font-weight:600}
+.btn-s{min-height:32px;padding:0 10px;font-size:12px}
+.seg{font:inherit;font-size:12px;min-height:32px;padding:0 10px;border:0;background:transparent;color:var(--mu);cursor:pointer;border-radius:4px}
+.seg-on{background:var(--pn);color:var(--tx);font-weight:600}
+.tag{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid var(--ln);color:var(--mu);white-space:nowrap}
+.src-c{color:var(--run);border-color:var(--run)}
+.src-d{color:var(--wait);border-color:var(--wait)}
+.fut{border:1px dashed var(--fut);color:var(--fut)}
+.pn{background:var(--pn);border:1px solid var(--ln);border-radius:8px}
+.lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);font-weight:600}
+.navi{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;border-radius:6px;color:var(--tx);text-decoration:none;font-size:13.5px}
+.navi-on{background:var(--sel);font-weight:600}
+.inp{font:inherit;font-size:13px;background:var(--bg);border:1px solid var(--ln);color:var(--tx);border-radius:6px;padding:8px 10px;min-height:40px;box-sizing:border-box}
+.ph{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--ln)}
+.row{display:grid;grid-template-columns:minmax(150px,220px) minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--ln)}
+.secl{display:block;padding:7px 10px;border-radius:6px;color:var(--tx);text-decoration:none;font-size:13px}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--ln); background: var(--pn)">
+<a href="Main.dc.html" class="mono" style="font-weight: 500; font-size: 14px; text-decoration: none; color: var(--tx)">◆ ai-sdlc-helper <span style="color: var(--mu)">0.1.0</span></a>
+<button class="btn btn-s" type="button">retail-wholesale ▾</button>
+<button class="btn btn-s" type="button" style="flex: 1 1 260px; justify-content: space-between; color: var(--mu); max-width: 520px">Search, or run any command… <span class="mono">⌘K</span></button>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="tag" style="color: var(--run)">● 2 running</span><span class="tag" style="color: var(--wait)">⏸ 2 need you</span><span class="tag" style="color: var(--fail)">✘ 1 failed</span></div>
+<div role="group" aria-label="Theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 6px; background: var(--pn2); border: 1px solid var(--ln)">
+<button type="button" class="{{lightCls}}" aria-pressed="{{lightOn}}" onClick="{{setLight}}">Light</button>
+<button type="button" class="{{darkCls}}" aria-pressed="{{darkOn}}" onClick="{{setDark}}">Dark</button>
+<button type="button" class="{{sysCls}}" aria-pressed="{{sysOn}}" onClick="{{setSys}}">System</button>
+</div>
+<span class="tag">127.0.0.1:4477</span>
+</header>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Main" style="flex: 1 1 200px; max-width: 240px; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; box-sizing: border-box">
+<div class="lbl" style="padding: 4px 10px">Workspace</div>
+<a class="navi" href="Main.dc.html">Board</a>
+<a class="navi" href="Run.dc.html">Runs</a>
+<a class="navi" href="NewItem.dc.html">Backlog</a>
+<div class="lbl" style="padding: 12px 10px 4px">Configure</div>
+<a class="navi navi-on" href="Settings.dc.html">Settings</a>
+<a class="navi" href="Prompts.dc.html">Prompts and skills</a>
+<a class="navi" href="Models.dc.html">Models</a>
+<div class="lbl" style="padding: 12px 10px 4px">System</div>
+<a class="navi" href="Projects.dc.html">Projects</a>
+<a class="navi" href="Roadmap.dc.html">Engine requests</a>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600; flex: 1 1 auto">Settings</h1>
+<div role="tablist" aria-label="Layer" style="display: flex; gap: 2px; padding: 3px; background: var(--pn2); border: 1px solid var(--ln); border-radius: 6px">
+<button class="seg seg-on" type="button" role="tab" aria-selected="true">Project · sdlc.config.json</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Personal · projects.json</button>
+<button class="seg" type="button" role="tab" aria-selected="false">Effective (resolved)</button>
+</div>
+<button class="btn" type="button">Open in editor</button>
+<button class="btn" type="button">Revert</button>
+<button class="btn btn-p" type="button">Save (3 changes)</button>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">
+<nav aria-label="Sections" class="pn" style="flex: 1 1 180px; max-width: 220px; padding: 8px; display: flex; flex-direction: column; gap: 2px">
+<a class="secl" href="#general">General</a>
+<a class="secl" href="#tests" style="background: var(--sel); font-weight: 600">Tests and suites</a>
+<a class="secl" href="#worktree">Worktree</a>
+<a class="secl" href="#git">Git</a>
+<a class="secl" href="#agent">Agent and code search</a>
+<a class="secl" href="#perm">Permission rules</a>
+<a class="secl" href="#ship">Ship</a>
+<a class="secl" href="#node">Node</a>
+<a class="secl" href="#env">Environment</a>
+<a class="secl" href="Prompts.dc.html">Prompts and skills</a>
+<a class="secl" href="Models.dc.html">Models</a>
+<a class="secl" href="#raw">Raw JSON</a>
+<a class="secl" href="#pipeline" style="color: var(--fut)">Pipeline stages · E-12</a>
+</nav>
+<div style="flex: 3 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<section class="pn" id="tests" aria-label="Tests and suites">
+<div class="ph"><span style="font-weight: 600">Tests and suites</span><span style="font-size: 12px; color: var(--mu)">badge = where the value comes from · <span class="tag src-c">config</span> <span class="tag src-d">detected</span> <span class="tag">default</span></span></div>
+<div class="row"><label for="retry">tests.retry</label><div role="group" aria-label="tests.retry" style="display: flex; gap: 2px; padding: 3px; background: var(--pn2); border-radius: 6px; justify-self: start"><button class="seg" type="button">not set</button><button class="seg seg-on" type="button" id="retry">true</button><button class="seg" type="button">false</button></div><span class="tag src-c">config</span></div>
+<div class="row"><label for="mw">tests.maxWorkers</label><input id="mw" class="inp mono" value="auto" style="max-width: 200px"><span class="tag src-c">config · changed</span></div>
+<div class="row"><label for="lint">lint</label><input id="lint" class="inp mono" value="npm run lint --prefix server"><span class="tag src-d">detected</span></div>
+<div class="row"><label for="integ">integration.cmd</label><input id="integ" class="inp mono" placeholder="none" value="npm run test:integration"><span class="tag">default</span></div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center"><span class="lbl">Suites</span><button class="btn btn-s" type="button">Add suite</button></div>
+<div style="overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 13px; min-width: 640px">
+<thead><tr style="text-align: left; color: var(--mu)"><th style="padding: 6px 8px; font-weight: 500">name</th><th style="padding: 6px 8px; font-weight: 500">runner</th><th style="padding: 6px 8px; font-weight: 500">dir</th><th style="padding: 6px 8px; font-weight: 500">cmd</th><th style="padding: 6px 8px; font-weight: 500">source</th><th></th></tr></thead>
+<tbody>
+<tr style="border-top: 1px solid var(--ln)"><td class="mono" style="padding: 8px">server</td><td style="padding: 8px">jest</td><td class="mono" style="padding: 8px">server/__tests__</td><td class="mono" style="padding: 8px">npx jest</td><td style="padding: 8px"><span class="tag src-d">detected</span></td><td style="padding: 8px"><a href="#e">Edit</a></td></tr>
+<tr style="border-top: 1px solid var(--ln)"><td class="mono" style="padding: 8px">client</td><td style="padding: 8px">vitest</td><td class="mono" style="padding: 8px">client/src</td><td class="mono" style="padding: 8px">npx vitest run</td><td style="padding: 8px"><span class="tag src-c">config</span></td><td style="padding: 8px"><a href="#e">Edit</a></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section class="pn" id="git" aria-label="Git and worktree">
+<div class="ph"><span style="font-weight: 600">Git and worktree</span></div>
+<div class="row"><label for="bp">git.branchPrefix</label><input id="bp" class="inp mono" value="sdlc/" style="max-width: 240px"><span class="tag">default</span></div>
+<div class="row"><label for="base">git.base</label><input id="base" class="inp mono" value="develop" style="max-width: 240px"><span class="tag src-c">config · changed</span></div>
+<div class="row"><label for="wtb">worktree.base</label><input id="wtb" class="inp mono" value="../retail-sdlc"><span class="tag">default</span></div>
+<div class="row" style="border-bottom: 0"><label for="wtl">worktree.link</label><input id="wtl" class="inp mono" value="node_modules, server/node_modules"><span class="tag src-c">config</span></div>
+</section>
+<section class="pn" id="agent" aria-label="Agent">
+<div class="ph"><span style="font-weight: 600">Agent and code search</span></div>
+<div class="row"><label for="cs">agent.codeSearch</label><select id="cs" class="inp" style="max-width: 240px"><option>auto (graft found)</option><option>graft</option><option>graphify</option><option>none (Grep and Glob)</option></select><span class="tag">default</span></div>
+<div class="row" style="border-bottom: 0; align-items: start"><span>agent.allowCommands</span><div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="tag mono">npm run build</span><span class="tag mono">docker compose ps</span><span class="tag mono">psql -c *</span><input class="inp mono" aria-label="Add command" placeholder="add a command…" style="min-height: 30px; padding: 4px 8px; max-width: 180px"></div><span class="tag src-c">config · changed</span></div>
+</section>
+<section class="pn" id="pipeline" aria-label="Pipeline stages" style="border-style: dashed; border-color: var(--fut)">
+<div class="ph"><span style="font-weight: 600; color: var(--fut)">Pipeline stages</span><span class="tag fut">Future · E-12</span></div>
+<div style="padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 8px; opacity: .75">
+<span class="tag">☑ Spec</span><span class="tag">☑ Plan</span><span class="tag">☑ Red tests</span><span class="tag">☑ Implement</span><span class="tag">☑ Test repair</span><span class="tag">☑ Review</span><span class="tag">☑ Ship</span><span class="tag fut">+ custom stage</span>
+<p style="flex-basis: 100%; margin: 4px 0 0; font-size: 12.5px; color: var(--mu)">Turn stages off, reorder them or add your own agent stage with its prompt. Needs a pipeline definition the engine reads.</p>
+</div>
+</section>
+</div>
+<aside class="pn" aria-label="Pending changes" style="flex: 2 1 340px; min-width: 0">
+<div class="ph"><span style="font-weight: 600">sdlc.config.json · diff</span><span class="tag" style="color: var(--done); border-color: var(--done)">✔ valid</span></div>
+<pre class="mono" style="margin: 0; padding: 12px 0; font-size: 12px; line-height: 1.7; overflow-x: auto; background: var(--code)"><span style="display: block; padding: 0 12px">{</span><span style="display: block; padding: 0 12px">  "tests": {</span><span style="display: block; padding: 0 12px">    "retry": true,</span><span style="display: block; padding: 0 12px; background: var(--delbg); color: var(--fail)">-   "maxWorkers": 2</span><span style="display: block; padding: 0 12px; background: var(--addbg); color: var(--done)">+   "maxWorkers": "auto"</span><span style="display: block; padding: 0 12px">  },</span><span style="display: block; padding: 0 12px">  "git": {</span><span style="display: block; padding: 0 12px; background: var(--addbg); color: var(--done)">+   "base": "develop"</span><span style="display: block; padding: 0 12px">  },</span><span style="display: block; padding: 0 12px">  "agent": {</span><span style="display: block; padding: 0 12px">    "allowCommands": [</span><span style="display: block; padding: 0 12px">      "npm run build",</span><span style="display: block; padding: 0 12px">      "docker compose ps",</span><span style="display: block; padding: 0 12px; background: var(--addbg); color: var(--done)">+     "psql -c *"</span><span style="display: block; padding: 0 12px">    ]</span><span style="display: block; padding: 0 12px">  }</span><span style="display: block; padding: 0 12px">}</span></pre>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--ln)">
+<span style="font-size: 12.5px; color: var(--mu)">Saved as-is: comments and key order are kept. Anything the form does not cover can be typed in Raw JSON; unknown keys are kept, not dropped.</span>
+<span class="mono" style="color: var(--mu)">$ ai-sdlc-helper show</span>
+</div>
+</aside>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":1440,"height":1360}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = (this.state && this.state.mode) || this.props.theme || 'dark';
+    let theme = mode;
+    if (mode === 'system') {
+      theme = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    const cls = (m) => (mode === m ? 'seg seg-on' : 'seg');
+    return {
+      theme,
+      lightCls: cls('light'), darkCls: cls('dark'), sysCls: cls('system'),
+      lightOn: String(mode === 'light'), darkOn: String(mode === 'dark'), sysOn: String(mode === 'system'),
+      setLight: () => this.setState({ mode: 'light' }),
+      setDark: () => this.setState({ mode: 'dark' }),
+      setSys: () => this.setState({ mode: 'system' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

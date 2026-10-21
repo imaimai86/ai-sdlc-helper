@@ -12,6 +12,11 @@ release notes. Keep new work under `## [Unreleased]`, and rename that heading to
 
 ### Added
 
+- **The web app: `ai-sdlc-helper ui`.** A local server (127.0.0.1, token-protected) and a browser app to run the whole
+  pipeline without the terminal: a live board, runs with their questions, refused actions, output and files, start,
+  resume, restart, stop and discard, per-run environment (model and effort per stage), new backlog items, projects and
+  doctor, a command palette, light and dark themes. It lives in `web/` and uses the engine only through its public entry.
+- **`runView`, `boardView`, `answerQuestions`, `addBacklogItem`** in the library, for monitors of the pipeline.
 - **`ai-sdlc-helper triage`** turns a report into backlog items: a Claude agent follows the shipped triage prompt
   (interactive, so it can ask; or headless with `--print`), writes each `brief.md` and index line, and the tool lists
   the new items and commits exactly those files on the current branch when asked (`--commit`). It never pushes.
